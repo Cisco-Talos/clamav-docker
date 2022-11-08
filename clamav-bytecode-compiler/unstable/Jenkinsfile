@@ -1,0 +1,120 @@
+properties([
+    parameters([
+        string(name: "DOCKER_USER", defaultValue: "micasnyd", description: "User account for Docker Hub"),
+        string(name: "DOCKER_REGISTRY", defaultValue: "registry.hub.docker.com", description: "The Docker registry to use"),
+        string(name: "REGISTRY_CREDS", defaultValue: "dockerhub", description: "The Jenkins credentials ID for the given registry"),
+        string(name: "PATCH_VERSION", defaultValue: "1.0.0", description: "Full version of ClamAV to build"),
+        string(name: "FEATURE_VERSION", defaultValue: "1.0", description: "The feature release number"),
+        string(name: 'REPOSITORY', defaultValue: 'https://github.com/Cisco-Talos/clamav-bytecode-compiler.git', description: 'The repository from which to build ClamAV Bytecode Compiler'),
+        string(name: 'BRANCH', defaultValue: 'main', description: 'The repository branch for this build'),
+        string(name: 'NAMESPACE', defaultValue: 'micasnyd', description: 'The docker namespace to use'),
+        string(name: 'IMAGE_NAME', defaultValue: 'clambc-compiler', description: 'The docker image name to use'),
+        string(name: 'IS_LATEST', defaultValue: false, description: 'If "true", will also publish to :latest, and :stable tags.'),
+    ]),
+    disableConcurrentBuilds(),
+    buildDiscarder(logRotator(
+        artifactDaysToKeepStr: '10',
+        artifactNumToKeepStr: '10',
+        daysToKeepStr: '30',
+        numToKeepStr: '20'))
+])
+
+node('docker-arm64') {
+    cleanWs()
+
+    try {
+        // Checkout the ClamAV source code
+        checkout([
+            $class: 'GitSCM', branches: [[name: "${params.BRANCH}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [
+                [$class: 'RelativeTargetDirectory', relativeTargetDir: '.'],
+                [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]
+            ],
+            submoduleCfg: [], userRemoteConfigs: [[url: "${params.REPOSITORY}"]]
+        ])
+
+        stage('Build Image') {
+
+            withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
+                // Make sure we have the latest base image.
+                sh """
+                docker pull alpine:latest
+                """
+
+                // Login to docker hub
+                sh """
+                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
+                    docker login --password-stdin --username "${params.DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                """
+
+                // Build the base image
+                if (params.BRANCH == 'main') {
+                    //
+                    // Build 'unstable' and 'unstable' images.
+                    //
+
+                    // Build & publish 'unstable' tag.
+                    sh """
+                    docker build --tag "${params.IMAGE_NAME}:unstable" .
+
+                    # Make a tag with the registry name in it so we can push wherever
+                    docker image tag ${params.IMAGE_NAME}:unstable ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
+
+                    # Push the image/tag
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
+                    """
+                } else {
+                    //
+                    // Build '<patch_ver>' and '<feature>' images.
+                    // And maybe also the 'latest' and 'stable' images.
+                    //
+
+                    // Build & publish '<patch-version>' tag (e.g. with version numbers in them).
+                    sh """
+                    docker build --tag "${params.IMAGE_NAME}:${params.PATCH_VERSION}" .
+
+                    # Make a tag with the registry name in it so we can push wherever
+                    docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION}
+
+                    # Push the image/tag
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION}
+                    """
+
+                    // Create & Publish '<feature-version>' tag of the base image.
+                    sh """
+                    docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                    """
+
+                    if (params.IS_LATEST) {
+                        // Create & Publish 'stable' and 'latest' tags.
+                        sh """
+                        docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
+                        docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
+
+                        docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                        docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                        """
+                    }
+
+                    // log-out (again)
+                    sh """
+                    docker logout "${docker_registry:-}"
+                    """
+                }
+            }
+        }
+
+    } catch(err) {
+        currentBuild.result = "FAILED"
+        sparkSend(
+            message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} (${params.PATCH_VERSION}) [${currentBuild.result}](${BUILD_URL})",
+            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+        throw err
+    }
+
+    sparkSend(
+        message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} (${params.PATCH_VERSION}) [${currentBuild.result}](${BUILD_URL})",
+        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+}
