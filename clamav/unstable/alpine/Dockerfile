@@ -15,41 +15,68 @@ RUN apk update && apk upgrade \
     && \
     apk add --no-cache \
         bsd-compat-headers \
-        bzip2-dev \
-        check-dev \
         cmake \
-        curl \
-        curl-dev \
         file \
         fts-dev \
         g++ \
-        git \
-        json-c-dev \
-        libmilter-dev \
-        libunwind-dev \
         libtool \
-        libxml2-dev \
         linux-headers \
         make \
-        ncurses-dev \
-        openssl-dev \
-        pcre2-dev \
+        # For the tests and for Mussels
+        python3 \
         py3-pytest \
-        zlib-dev \
+        py3-pip \
+        perl \
+        # For Rust/Cargo
+        libunwind-dev \
+        # For building static libraries with Mussels
+        git \
+        patchelf \
+    && \
+    python3 -m pip install --upgrade pip && \
+    python3 -m pip install mussels && \
+    python3 -m mussels update && \
+    python3 -m mussels cookbook trust -y clamav && \
+    python3 -m mussels build clamav_deps -t host-static -r \
     && \
     mkdir -p "./build" && cd "./build" && \
     cmake .. \
-          -DCMAKE_BUILD_TYPE="Release" \
-          -DCMAKE_INSTALL_PREFIX="/usr" \
-          -DCMAKE_INSTALL_LIBDIR="/usr/lib" \
-          -DAPP_CONFIG_DIRECTORY="/etc/clamav" \
-          -DDATABASE_DIRECTORY="/var/lib/clamav" \
-          -DENABLE_CLAMONACC=OFF \
-          -DENABLE_EXAMPLES=OFF \
-          -DENABLE_JSON_SHARED=ON \
-          -DENABLE_MAN_PAGES=OFF \
-          -DENABLE_MILTER=ON \
-          -DENABLE_STATIC_LIB=OFF && \
+        -D CMAKE_BUILD_TYPE="Release"                                                       \
+        -D CMAKE_INSTALL_PREFIX="/usr"                                                      \
+        -D CMAKE_INSTALL_LIBDIR="/usr/lib"                                                  \
+        -D APP_CONFIG_DIRECTORY="/etc/clamav"                                               \
+        -D DATABASE_DIRECTORY="/var/lib/clamav"                                             \
+        -D ENABLE_CLAMONACC=OFF                                                             \
+        -D ENABLE_EXAMPLES=OFF                                                              \
+        -D ENABLE_MILTER=OFF                                                                \
+        -D ENABLE_MAN_PAGES=OFF                                                             \
+        -D ENABLE_STATIC_LIB=ON                                                             \
+        -D ENABLE_SHARED_LIB=OFF                                                            \
+        -D CMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE                                            \
+        -D CMAKE_PREFIX_PATH="$HOME/.mussels/install/host-static"                           \
+        -D CMAKE_MODULE_PATH="$HOME/.mussels/install/host-static/lib/cmake"                 \
+        -D JSONC_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/json-c"            \
+        -D JSONC_LIBRARY="$HOME/.mussels/install/host-static/lib/libjson-c.a"               \
+        -D ENABLE_JSON_SHARED=OFF                                                           \
+        -D BZIP2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                   \
+        -D BZIP2_LIBRARY_RELEASE="$HOME/.mussels/install/host-static/lib/libbz2_static.a"   \
+        -D CURL_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                    \
+        -D CURL_LIBRARY="$HOME/.mussels/install/host-static/lib/libcurl.a"                  \
+        -D OPENSSL_ROOT_DIR="$HOME/.mussels/install/host-static"                            \
+        -D OPENSSL_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                 \
+        -D OPENSSL_CRYPTO_LIBRARY="$HOME/.mussels/install/host-static/lib/libcrypto.a"      \
+        -D OPENSSL_SSL_LIBRARY="$HOME/.mussels/install/host-static/lib/libssl.a"            \
+        -D LIBXML2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/libxml2"         \
+        -D LIBXML2_LIBRARY="$HOME/.mussels/install/host-static/lib/libxml2.a"               \
+        -D PCRE2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                   \
+        -D PCRE2_LIBRARY="$HOME/.mussels/install/host-static/lib/libpcre2-8.a"              \
+        -D NCURSES_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/ncurses"         \
+        -D CURSES_LIBRARY="$HOME/.mussels/install/host-static/lib/libncurses.a"             \
+        -D ZLIB_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                    \
+        -D ZLIB_LIBRARY="$HOME/.mussels/install/host-static/lib/libz.a"                     \
+        -D LIBCHECK_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                \
+        -D LIBCHECK_LIBRARY="$HOME/.mussels/install/host-static/lib/libcheck.a"             \
+    && \
     make DESTDIR="/clamav" -j$(($(nproc) - 1)) install && \
     rm -r \
        "/clamav/usr/lib/pkgconfig/" \
@@ -69,15 +96,7 @@ RUN apk update && apk upgrade \
         -e "s|^\#\(UpdateLogFile\) .*|\1 /var/log/clamav/freshclam.log|" \
         -e "s|^\#\(NotifyClamd\).*|\1 /etc/clamav/clamd.conf|" \
         -e "s|^\#\(ScriptedUpdates\).*|\1 yes|" \
-        "/clamav/etc/clamav/freshclam.conf.sample" > "/clamav/etc/clamav/freshclam.conf" && \
-    sed -e "s|^\(Example\)|\# \1|" \
-        -e "s|.*\(PidFile\) .*|\1 /tmp/clamav-milter.pid|" \
-        -e "s|.*\(MilterSocket\) .*|\1 inet:7357|" \
-        -e "s|.*\(User\) .*|\1 clamav|" \
-        -e "s|^\#\(LogFile\) .*|\1 /var/log/clamav/milter.log|" \
-        -e "s|^\#\(LogTime\).*|\1 yes|" \
-        -e "s|.*\(\ClamdSocket\) .*|\1 unix:/tmp/clamd.sock|" \
-        "/clamav/etc/clamav/clamav-milter.conf.sample" > "/clamav/etc/clamav/clamav-milter.conf" || \
+        "/clamav/etc/clamav/freshclam.conf.sample" > "/clamav/etc/clamav/freshclam.conf" || \
     exit 1 && \
     ctest -V
 
