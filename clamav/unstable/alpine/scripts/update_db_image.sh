@@ -102,7 +102,7 @@ main()
 {
 	_start_time="$(date "+%s")"
 
-	while getopts ":hi:p:r:t:u:" _options; do
+	while getopts ":hi:n:p:r:t:u:" _options; do
 		case "${_options}" in
 		h)
 			usage
