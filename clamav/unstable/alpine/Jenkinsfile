@@ -84,10 +84,17 @@ node('docker') {
                 CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
                     ./scripts/update_db_image.sh -t unstable_base -n ${params.NAMESPACE}
                 """
+
+                // update_db_image.sh logged off from the registry for us. No need to do it manually.
             }
         }
 
     } catch(err) {
+        // log-out, if required
+        sh """
+        docker logout "${params.DOCKER_REGISTRY}" || true
+        """
+
         currentBuild.result = "FAILED"
         sparkSend(
             message: "Docker build from ${params.REPOSITORY} branch main for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
