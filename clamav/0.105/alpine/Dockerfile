@@ -111,18 +111,10 @@ ENV TZ Etc/UTC
 
 RUN apk add --no-cache \
         fts \
-        json-c \
-        libbz2 \
-        libcurl \
-        libltdl \
-        libmilter \
         libstdc++ \
-        libxml2 \
-        ncurses-libs \
-        pcre2 \
         tini \
         tzdata \
-        zlib \
+        libunwind \
     && \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
