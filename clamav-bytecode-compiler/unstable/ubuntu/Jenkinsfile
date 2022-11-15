@@ -42,7 +42,7 @@ node('docker-arm64') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/Dockerfile .
+        cp -r clamav-docker/clamav-bytecode-compiler/unstable/ubuntu/Dockerfile .
         """
 
         stage('Build Image') {
