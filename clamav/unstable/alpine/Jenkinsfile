@@ -82,8 +82,7 @@ node('docker') {
                 sh """
                 DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
                 CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                CLAMAV_DOCKER_TAG="unstable" \
-                    ./scripts/update_db_image.sh -t unstable -n ${params.NAMESPACE}
+                    ./scripts/update_db_image.sh -t unstable_base -n ${params.NAMESPACE}
                 """
             }
         }

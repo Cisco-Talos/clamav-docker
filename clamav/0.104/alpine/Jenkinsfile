@@ -118,8 +118,7 @@ node('docker') {
                 sh """
                 DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
                 CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                CLAMAV_DOCKER_TAG="${params.FULL_VERSION}-${params.REVISION}" \
-                    ./scripts/update_db_image.sh -t ${params.FULL_VERSION}-${params.REVISION} -n ${params.NAMESPACE}
+                    ./scripts/update_db_image.sh -t ${params.FULL_VERSION}-${params.REVISION}_base -n ${params.NAMESPACE}
                 """
 
                 // Login to docker hub again, because the update_db_image.sh script removed our creds in its cleanup stage

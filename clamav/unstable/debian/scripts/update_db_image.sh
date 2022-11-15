@@ -21,7 +21,7 @@ usage()
 	echo "    -i  Image to use to use (default: '${DEF_CLAMAV_DOCKER_IMAGE}') [CLAMAV_DOCKER_IMAGE]"
 	echo "    -p  Password for docker registry (file or string) [DOCKER_PASSWD]"
 	echo "    -r  Registry to use to push docker images to (default: '${DEF_DOCKER_REGISTRY}') [DOCKER_REGISTRY]"
-	echo "    -t  Tag(s) to update (default: all tags)"
+	echo "    -t  Tag(s) WITH _base suffix to update (default: all tags)"
 	echo "    -u  Username for docker registry [DOCKER_USER]"
 	echo
 	echo "Options that can also be passed in environment variables listed between [BRACKETS]."
