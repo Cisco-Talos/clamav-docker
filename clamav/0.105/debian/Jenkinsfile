@@ -4,7 +4,7 @@ properties([
         string(name: 'REGISTRY_CREDS',  defaultValue: 'dockerhub',                                  description: 'The Jenkins credentials ID for the given registry'),
         string(name: 'WEBEX_SPACE_ID',  defaultValue: 'b204c1a0-6862-11e8-9dbc-93ef3cfef186',       description: 'ID of Webex space to push pass/fail notifications'),
         string(name: 'NAMESPACE',       defaultValue: 'micasnyd',                                   description: 'The docker namespace to use'),
-        string(name: 'IMAGE_NAME',      defaultValue: 'clambc-compiler',                            description: 'The docker image name to use'),
+        string(name: 'IMAGE_NAME',      defaultValue: 'clamav',                                     description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
         string(name: 'BRANCH',          defaultValue: 'rel/0.105',                                  description: 'The repository branch for this build'),
         string(name: 'FULL_VERSION',    defaultValue: '0.105.1',                                    description: 'Full version in X.Y.Z format'),
