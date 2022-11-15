@@ -158,12 +158,12 @@ node('docker-arm64') {
     } catch(err) {
         currentBuild.result = "FAILED"
         sparkSend(
-            message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} (${params.PATCH_VERSION}) [${currentBuild.result}](${BUILD_URL})",
+            message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [${currentBuild.result}](${BUILD_URL})",
             spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
         throw err
     }
 
     sparkSend(
-        message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} (${params.PATCH_VERSION}) [${currentBuild.result}](${BUILD_URL})",
+        message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [${currentBuild.result}](${BUILD_URL})",
         spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
 }
