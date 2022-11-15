@@ -127,11 +127,11 @@ main()
 			clamav_docker_user="${OPTARG}"
 			;;
 		:)
-			e_err "Option -${OPTARG} requires an argument."
+			>&2 echo "Option -${OPTARG} requires an argument."
 			exit 1
 			;;
 		?)
-			e_err "Invalid option: -${OPTARG}"
+			>&2 echo "Invalid option: -${OPTARG}"
 			exit 1
 			;;
 		esac
