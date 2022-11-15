@@ -3,9 +3,9 @@ properties([
         string(name: "DOCKER_USER", defaultValue: "micasnyd", description: "User account for Docker Hub"),
         string(name: "DOCKER_REGISTRY", defaultValue: "registry.hub.docker.com", description: "The Docker registry to use"),
         string(name: "REGISTRY_CREDS", defaultValue: "dockerhub", description: "The Jenkins credentials ID for the given registry"),
-        string(name: 'REPOSITORY', defaultValue: 'https://github.com/Cisco-Talos/clamav.git', description: 'The repository from which to build ClamAV'),
+        string(name: 'REPOSITORY', defaultValue: 'https://github.com/Cisco-Talos/clamav-bytecode-compiler.git', description: 'The repository from which to build ClamAV Bytecode Compiler'),
         string(name: 'NAMESPACE', defaultValue: 'micasnyd', description: 'The docker namespace to use'),
-        string(name: 'IMAGE_NAME', defaultValue: 'clamav-debian', description: 'The docker image name to use'),
+        string(name: 'IMAGE_NAME', defaultValue: 'clambc-compiler', description: 'The docker image name to use'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -31,11 +31,10 @@ node('docker-arm64') {
         ])
 
         stage('Build Image') {
-
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:11-slim
+                docker pull alpine:latest
                 """
 
                 // Login to docker hub
@@ -45,32 +44,17 @@ node('docker-arm64') {
                 """
 
                 //
-                // Build 'unstable' and 'unstable_base' images.
+                // Build 'unstable' image.
                 //
 
-                // Build & publish 'unstable_base' tag.
                 sh """
-                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:unstable_base" .
+                docker build --tag "${params.IMAGE_NAME}:unstable" .
 
                 # Make a tag with the registry name in it so we can push wherever
-                docker image tag ${params.IMAGE_NAME}:unstable_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base
+                docker image tag ${params.IMAGE_NAME}:unstable ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
 
                 # Push the image/tag
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base
-                """
-
-                // Give it some time to add the new unstable_base image.
-                // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
-                sh """
-                sleep 20
-                """
-
-                // Generate and push an image without the "_base" suffix that contains the databases.
-                sh """
-                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
-                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                CLAMAV_DOCKER_TAG="unstable" \
-                    ./scripts/update_db_image.sh -t unstable -n ${params.NAMESPACE}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
                 """
             }
         }
