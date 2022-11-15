@@ -1,10 +1,11 @@
 properties([
     parameters([
-        string(name: "DOCKER_REGISTRY", defaultValue: "registry.hub.docker.com", description: "The Docker registry to use"),
-        string(name: "REGISTRY_CREDS", defaultValue: "dockerhub", description: "The Jenkins credentials ID for the given registry"),
-        string(name: 'REPOSITORY', defaultValue: 'https://github.com/Cisco-Talos/clamav.git', description: 'The repository from which to build ClamAV'),
-        string(name: 'NAMESPACE', defaultValue: 'micasnyd', description: 'The docker namespace to use'),
-        string(name: 'IMAGE_NAME', defaultValue: 'clamav', description: 'The docker image name to use'),
+        string(name: 'DOCKER_REGISTRY', description: 'The Docker registry to use'),
+        string(name: 'REGISTRY_CREDS',  description: 'The Jenkins credentials ID for the given registry'),
+        string(name: 'WEBEX_SPACE_ID',  description: 'ID of Webex space to push pass/fail notifications'),
+        string(name: 'REPOSITORY',      description: 'The repository from which to build ClamAV'),
+        string(name: 'NAMESPACE',       description: 'The docker namespace to use'),
+        string(name: 'IMAGE_NAME',      description: 'The docker image name to use'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -61,7 +62,6 @@ node('docker') {
                 // Build 'unstable' and 'unstable_base' images.
                 //
 
-                // Build & publish 'unstable_base' tag.
                 sh """
                 docker build --tag "${params.IMAGE_NAME}:unstable_base" .
 
@@ -92,11 +92,11 @@ node('docker') {
         currentBuild.result = "FAILED"
         sparkSend(
             message: "Docker build from ${params.REPOSITORY} branch main for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
-            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
         throw err
     }
 
     sparkSend(
         message: "Docker build from ${params.REPOSITORY} branch main for ${params.NAMESPACE}/${params.IMAGE_NAME} [PASSED](${BUILD_URL})",
-        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
 }

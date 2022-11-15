@@ -1,15 +1,16 @@
 properties([
     parameters([
-        string(name: "DOCKER_USER", defaultValue: "micasnyd", description: "User account for Docker Hub"),
-        string(name: "DOCKER_REGISTRY", defaultValue: "registry.hub.docker.com", description: "The Docker registry to use"),
-        string(name: "REGISTRY_CREDS", defaultValue: "dockerhub", description: "The Jenkins credentials ID for the given registry"),
-        string(name: "FEATURE_VERSION", defaultValue: "1.0", description: "The feature release number"),
-        string(name: "PATCH_VERSION", description: "Full version of ClamAV to build. Ex:  1.0.0"),
-        string(name: 'REPOSITORY', defaultValue: 'https://github.com/Cisco-Talos/clamav.git', description: 'The repository from which to build ClamAV'),
-        string(name: 'BRANCH', defaultValue: 'rel/0.105', description: 'The repository branch for this build'),
-        string(name: 'NAMESPACE', defaultValue: 'micasnyd', description: 'The docker namespace to use'),
-        string(name: 'IMAGE_NAME', defaultValue: 'clamav-debian', description: 'The docker image name to use'),
-        string(name: 'IS_LATEST', defaultValue: false, description: 'If "true", will also publish to :latest, and :stable tags.'),
+        string(name: 'DOCKER_REGISTRY', description: 'The Docker registry to use'),
+        string(name: 'REGISTRY_CREDS',  description: 'The Jenkins credentials ID for the given registry'),
+        string(name: 'WEBEX_SPACE_ID',  description: 'ID of Webex space to push pass/fail notifications'),
+        string(name: 'FULL_VERSION',    description: 'Full version of ClamAV to build in X.Y.Z format'),
+        string(name: 'FEATURE_VERSION', description: "The feature release number in X.Y format"),
+        string(name: 'REVISION',        description: 'Revision of image for tag suffix. Starts at 1'),
+        string(name: 'REPOSITORY',      description: 'The repository from which to build ClamAV'),
+        string(name: 'BRANCH',          description: 'The repository branch for this build'),
+        string(name: 'NAMESPACE',       description: 'The docker namespace to use'),
+        string(name: 'IMAGE_NAME',      description: 'The docker image name to use'),
+        booleanParam(name: 'IS_LATEST', description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -34,6 +35,21 @@ node('docker-arm64') {
             submoduleCfg: [], userRemoteConfigs: [[url: "${params.REPOSITORY}"]]
         ])
 
+        // Remove the Dockerfile and scripts from the clamav repo, if any.
+        sh """
+        rm -rf ./Dockerfile ./dockerfiles
+        """
+
+        // Checkout the current repo
+        dir(path: 'clamav-docker') {
+            checkout scm
+        }
+
+        // Use the Dockerfile and scripts from this repo.
+        sh """
+        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/scripts .
+        """
+
         stage('Build Image') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
                 // Make sure we have the latest base image.
@@ -44,80 +60,100 @@ node('docker-arm64') {
                 // Login to docker hub
                 sh """
                 echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
-                    docker login --password-stdin --username "${params.DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                    docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
                 """
 
                 //
-                // Build '<patch_ver>', '<patch_ver>_base', '<feature_ver>', and '<feature_base>' images.
-                // And maybe also the 'latest' / 'latest_base' and 'stable' / 'stable_base' images.
+                // Build the following images:
+                //  - X.Y.Z-R,  X.Y.Z-R_base
+                //  - X.Y.Z,    X.Y.Z_base
+                //  - X.Y,      X.Y_base
+                //
+                // And maybe also:
+                //  - latest,   latest_base
+                //  - stable,   stable_base
                 //
 
-                // Build & publish '<patch-version>_base' tag (e.g. with version numbers in them).
+                // Build X.Y.Z-R_base image.
                 sh """
-                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:${params.PATCH_VERSION}_base" .
-
-                # Make a tag with the registry name in it so we can push wherever
-                docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION}_base
-
-                # Push the image/tag
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION}_base
+                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}_base" .
                 """
 
-                // Give it some time to add the new ${params.PATCH_VERSION}_base image.
-                // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
+                // Publish X.Y.Z-R_base tag
                 sh """
-                sleep 20
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base
                 """
 
-                // Create & Publish '<feature-version>_base' tag of the base image.
+                // Publish X.Y.Z_base tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
+                """
+
+                // Publish X.Y_base tag
+                sh """
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
-                """
-
-                // Generate and push an image without the "_base" suffix that contains the databases.
-                sh """
-                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
-                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                CLAMAV_DOCKER_TAG="${params.PATCH_VERSION}" \
-                    ./scripts/update_db_image.sh -t ${params.PATCH_VERSION} -n ${params.NAMESPACE}
-                """
-
-                // Login to docker hub (again, because the update_db_image.sh script removed our creds in its cleanup stage)
-                sh """
-                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
-                    docker login --password-stdin --username "${params.DOCKER_USER}" "${params.DOCKER_REGISTRY}"
-                """
-
-                // Create & Publish '<feature-version>' tag of the '<patch-version>' image.
-                sh """
-                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
                 """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
 
-                    docker image tag ${params.IMAGE_NAME}:${params.PATCH_VERSION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     """
+                }
 
+                // The update_db_image.sh script will query for tags during the update process.
+                // So give the registry a little time to add the X.Y.Z-R_base image.
+                sh """
+                sleep 20
+                """
+
+                // Pull the X.Y.Z-R_base image, update the DB, and push it out as X.Y.Z-R (without the _base suffix)
+                sh """
+                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
+                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
+                CLAMAV_DOCKER_TAG="${params.FULL_VERSION}-${params.REVISION}" \
+                    ./scripts/update_db_image.sh -t ${params.FULL_VERSION}-${params.REVISION} -n ${params.NAMESPACE}
+                """
+
+                // Login to docker hub again, because the update_db_image.sh script removed our creds in its cleanup stage
+                sh """
+                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
+                    docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                """
+
+                // Publish X.Y.Z tag (without the _base suffix)
+                sh """
+                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
+                """
+
+                // Publish X.Y tag (without the _base suffix)
+                sh """
+                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                """
+
+                if (params.IS_LATEST) {
                     // Create & Publish 'stable' and 'latest' tags.
                     sh """
-                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
+                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
 
-                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.PATCH_VERSION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     """
                 }
 
                 // log-out (again)
                 sh """
-                docker logout "${docker_registry:-}"
+                docker logout "${params.DOCKER_REGISTRY}"
                 """
             }
         }
@@ -125,12 +161,12 @@ node('docker-arm64') {
     } catch(err) {
         currentBuild.result = "FAILED"
         sparkSend(
-            message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
-            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+            message: "Docker build of ${params.FULL_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
+            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
         throw err
     }
 
     sparkSend(
-        message: "Docker build of ${params.PATCH_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [PASSED](${BUILD_URL})",
-        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "b204c1a0-6862-11e8-9dbc-93ef3cfef186"]], credentialsId: 'clambuilder', messageType: 'markdown')
+        message: "Docker build of ${params.FULL_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [PASSED](${BUILD_URL})",
+        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
 }
