@@ -15,7 +15,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('docker-arm64') {
+node('docker') {
     cleanWs()
 
     try {
