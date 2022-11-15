@@ -92,11 +92,11 @@ node('docker') {
         currentBuild.result = "FAILED"
         sparkSend(
             message: "Docker build from ${params.REPOSITORY} branch main for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
-            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
+            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "${params.WEBEX_SPACE_ID}"]], credentialsId: 'clambuilder', messageType: 'markdown')
         throw err
     }
 
     sparkSend(
         message: "Docker build from ${params.REPOSITORY} branch main for ${params.NAMESPACE}/${params.IMAGE_NAME} [PASSED](${BUILD_URL})",
-        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: ${params.WEBEX_SPACE_ID}]], credentialsId: 'clambuilder', messageType: 'markdown')
+        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "${params.WEBEX_SPACE_ID}"]], credentialsId: 'clambuilder', messageType: 'markdown')
 }
