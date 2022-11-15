@@ -49,7 +49,7 @@ node('docker-arm64') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
                 // Make sure we have the latest base image.
                 sh """
-                docker pull alpine:latest
+                docker pull ubuntu:20.04
                 """
 
                 // Login to docker hub
