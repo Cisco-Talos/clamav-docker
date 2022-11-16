@@ -50,7 +50,7 @@ node('docker-arm64') {
                 // Configure docker buildx
                 sh """
                 docker buildx install
-                docker buildx create --use --name=builder --driver docker-container --driver-opt image=${DOCKER_BUILDKIT_IMAGE} || true
+                docker buildx create --use --name=builder --driver docker-container --driver-opt image=multiarch/qemu-user-static || true
                 """
 
                 // Make sure we have the latest base image.
