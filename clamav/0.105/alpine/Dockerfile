@@ -22,7 +22,9 @@ RUN apk update && apk upgrade \
         libtool \
         linux-headers \
         make \
-        # For the tests and for Mussels
+        # Clamav dependencies provided by alpine
+        libmilter-dev \
+        # For the tests and for Mussels to build static libs
         python3 \
         py3-pytest \
         py3-pip \
@@ -48,7 +50,7 @@ RUN apk update && apk upgrade \
         -D DATABASE_DIRECTORY="/var/lib/clamav"                                             \
         -D ENABLE_CLAMONACC=OFF                                                             \
         -D ENABLE_EXAMPLES=OFF                                                              \
-        -D ENABLE_MILTER=OFF                                                                \
+        -D ENABLE_MILTER=ON                                                                 \
         -D ENABLE_MAN_PAGES=OFF                                                             \
         -D ENABLE_STATIC_LIB=ON                                                             \
         -D ENABLE_SHARED_LIB=OFF                                                            \
@@ -82,8 +84,8 @@ RUN apk update && apk upgrade \
        "/clamav/usr/lib/pkgconfig/" \
     && \
     sed -e "s|^\(Example\)|\# \1|" \
-        -e "s|.*\(PidFile\) .*|\1 /tmp/clamd.pid|" \
-        -e "s|.*\(LocalSocket\) .*|\1 /tmp/clamd.sock|" \
+        -e "s|.*\(PidFile\) .*|\1 /run/lock/clamd.pid|" \
+        -e "s|.*\(LocalSocket\) .*|\1 /run/clamav/clamd.sock|" \
         -e "s|.*\(TCPSocket\) .*|\1 3310|" \
         -e "s|.*\(TCPAddr\) .*|#\1 0.0.0.0|" \
         -e "s|.*\(User\) .*|\1 clamav|" \
@@ -91,13 +93,22 @@ RUN apk update && apk upgrade \
         -e "s|^\#\(LogTime\).*|\1 yes|" \
         "/clamav/etc/clamav/clamd.conf.sample" > "/clamav/etc/clamav/clamd.conf" && \
     sed -e "s|^\(Example\)|\# \1|" \
-        -e "s|.*\(PidFile\) .*|\1 /tmp/freshclam.pid|" \
+        -e "s|.*\(PidFile\) .*|\1 /run/lock/freshclam.pid|" \
         -e "s|.*\(DatabaseOwner\) .*|\1 clamav|" \
         -e "s|^\#\(UpdateLogFile\) .*|\1 /var/log/clamav/freshclam.log|" \
         -e "s|^\#\(NotifyClamd\).*|\1 /etc/clamav/clamd.conf|" \
         -e "s|^\#\(ScriptedUpdates\).*|\1 yes|" \
-        "/clamav/etc/clamav/freshclam.conf.sample" > "/clamav/etc/clamav/freshclam.conf" || \
-    exit 1 && \
+        "/clamav/etc/clamav/freshclam.conf.sample" > "/clamav/etc/clamav/freshclam.conf" && \
+    sed -e "s|^\(Example\)|\# \1|" \
+        -e "s|.*\(PidFile\) .*|\1 /run/lock/clamav-milter.pid|" \
+        -e "s|.*\(MilterSocket\) .*|\1 inet:7357|" \
+        -e "s|.*\(User\) .*|\1 clamav|" \
+        -e "s|^\#\(LogFile\) .*|\1 /var/log/clamav/milter.log|" \
+        -e "s|^\#\(LogTime\).*|\1 yes|" \
+        -e "s|.*\(\ClamdSocket\) .*|\1 unix:/run/clamav/clamd.sock|" \
+        "/clamav/etc/clamav/clamav-milter.conf.sample" > "/clamav/etc/clamav/clamav-milter.conf" || \
+    exit 1 \
+    && \
     ctest -V
 
 FROM index.docker.io/library/alpine:latest
@@ -115,6 +126,7 @@ RUN apk add --no-cache \
         tini \
         tzdata \
         libunwind \
+        libmilter \
     && \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
