@@ -47,6 +47,12 @@ node('docker-arm64') {
 
         stage('Build Image') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
+                // Configure docker buildx
+                sh """
+                docker buildx install
+                docker buildx create --use --name=builder --driver docker-container --driver-opt image=${DOCKER_BUILDKIT_IMAGE} || true
+                """
+
                 // Make sure we have the latest base image.
                 sh """
                 docker pull debian:11-slim
