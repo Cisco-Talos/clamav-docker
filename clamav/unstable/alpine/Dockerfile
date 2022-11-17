@@ -24,6 +24,7 @@ RUN apk update && apk upgrade \
         make \
         # Clamav dependencies provided by alpine
         libmilter-dev \
+        ncurses-dev \
         # For the tests and for Mussels to build static libs
         python3 \
         py3-pytest \
@@ -72,8 +73,6 @@ RUN apk update && apk upgrade \
         -D LIBXML2_LIBRARY="$HOME/.mussels/install/host-static/lib/libxml2.a"               \
         -D PCRE2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                   \
         -D PCRE2_LIBRARY="$HOME/.mussels/install/host-static/lib/libpcre2-8.a"              \
-        -D NCURSES_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/ncurses"         \
-        -D CURSES_LIBRARY="$HOME/.mussels/install/host-static/lib/libncurses.a"             \
         -D ZLIB_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                    \
         -D ZLIB_LIBRARY="$HOME/.mussels/install/host-static/lib/libz.a"                     \
         -D LIBCHECK_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                \
@@ -127,6 +126,7 @@ RUN apk add --no-cache \
         tzdata \
         libunwind \
         libmilter \
+        ncurses-libs \
     && \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
