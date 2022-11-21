@@ -10,6 +10,7 @@ WORKDIR /src
 COPY . /src/
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV CARGO_HOME /src/build
 
 RUN apt update && apt install -y \
         cmake \
@@ -34,16 +35,21 @@ RUN apt update && apt install -y \
         libssl-dev \
         libxml2-dev \
         zlib1g-dev \
+        curl \
     && \
     rm -rf /var/cache/apt/archives \
     && \
     # Using rustup to install Rust rather than rust:1.62.1-bullseye, because there is no rust:1.62.1-bullseye image for ppc64le at this time.
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && \
+    . $CARGO_HOME/env \
+    && \
+    rustup update \
+    && \
     mkdir -p "./build" && cd "./build" \
     && \
     cmake .. \
-          -DCARGO_HOME="/src/build" \
+          -DCARGO_HOME=$CARGO_HOME \
           -DCMAKE_BUILD_TYPE="Release" \
           -DCMAKE_INSTALL_PREFIX="/usr" \
           -DCMAKE_INSTALL_LIBDIR="/usr/lib" \
@@ -113,8 +119,8 @@ RUN apt-get update && apt-get install -y \
         tzdata \
     && \
     rm -rf /var/cache/apt/archives && \
-    groupadd "clamav" && \
-    useradd -g clamav -s /bin/false --home-dir /var/lib/clamav -u 100 -c "Clam Antivirus" clamav && \
+    groupadd -g 1000 "clamav" && \
+    useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 1000 -c "Clam Antivirus" clamav && \
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
     chown -R clamav:clamav /var/lib/clamav
 
