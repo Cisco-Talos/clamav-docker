@@ -137,6 +137,6 @@ COPY --from=builder "/clamav" "/"
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
 COPY "./scripts/docker-entrypoint.sh" "/init"
 
-HEALTHCHECK --start-period=6m CMD "clamdcheck.sh"
+HEALTHCHECK --start-period=6m CMD clamdcheck.sh
 
 ENTRYPOINT [ "/init" ]
