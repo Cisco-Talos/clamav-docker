@@ -47,7 +47,7 @@ node('docker-arm64') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/scripts .
+        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/debian/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/debian/scripts .
         """
 
         stage('Build Image') {
