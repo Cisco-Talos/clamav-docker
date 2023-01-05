@@ -10,6 +10,15 @@
 
 set -eu
 
+# update userid/groupid if specified
+if [ -n $CLAMAV_UID ]; then
+        usermod -u $CLAMAV_UID clamav
+fi
+
+if [ -n $CLAMAV_GID ]; then
+        groupmod -g $CLAMAV_GID clamav
+fi
+
 if [ ! -d "/run/clamav" ]; then
 	install -d -g "clamav" -m 775 -o "clamav" "/run/clamav"
 fi
