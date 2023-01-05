@@ -35,6 +35,7 @@ RUN apk update && apk upgrade \
         # For building static libraries with Mussels
         git \
         patchelf \
+        shadow \
     && \
     python3 -m pip install --upgrade pip && \
     python3 -m pip install mussels && \

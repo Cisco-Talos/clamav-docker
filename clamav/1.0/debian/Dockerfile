@@ -36,6 +36,7 @@ RUN apt update && apt install -y \
         libxml2-dev \
         zlib1g-dev \
         curl \
+        shadow \
     && \
     rm -rf /var/cache/apt/archives \
     && \
