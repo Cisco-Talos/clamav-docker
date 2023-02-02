@@ -4,7 +4,7 @@
 # Copyright (C) 2021-2022 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
 
 # hadolint ignore=DL3007  latest is the latest stable for alpine
-FROM index.docker.io/library/rust:alpine AS builder
+FROM index.docker.io/library/alpine:latest AS builder
 
 WORKDIR /src
 
@@ -17,30 +17,29 @@ RUN apk update && apk upgrade \
         bsd-compat-headers \
         cmake \
         file \
-        fts-dev \
         g++ \
         libtool \
         linux-headers \
         make \
+        musl-fts-dev \
         # Clamav dependencies provided by alpine
+        bzip2-dev \
+        check-dev \
+        curl-dev \
+        json-c-dev \
         libmilter-dev \
+        libxml2-dev \
         ncurses-dev \
-        # For the tests and for Mussels to build static libs
+        ncurses-dev \
+        openssl-dev \
+        pcre2-dev \
+        zlib-dev \
+        # For the tests
         python3 \
         py3-pytest \
-        py3-pip \
-        perl \
         # For Rust/Cargo
-        libunwind-dev \
-        # For building static libraries with Mussels
-        git \
-        patchelf \
-    && \
-    python3 -m pip install --upgrade pip && \
-    python3 -m pip install mussels && \
-    python3 -m mussels update && \
-    python3 -m mussels cookbook trust -y clamav && \
-    python3 -m mussels build clamav_deps -t host-static -r \
+        cargo \
+        rust \
     && \
     mkdir -p "./build" && cd "./build" && \
     cmake .. \
@@ -53,30 +52,8 @@ RUN apk update && apk upgrade \
         -D ENABLE_EXAMPLES=OFF                                                              \
         -D ENABLE_MILTER=ON                                                                 \
         -D ENABLE_MAN_PAGES=OFF                                                             \
-        -D ENABLE_STATIC_LIB=ON                                                             \
-        -D ENABLE_SHARED_LIB=OFF                                                            \
-        -D CMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE                                            \
-        -D CMAKE_PREFIX_PATH="$HOME/.mussels/install/host-static"                           \
-        -D CMAKE_MODULE_PATH="$HOME/.mussels/install/host-static/lib/cmake"                 \
-        -D JSONC_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/json-c"            \
-        -D JSONC_LIBRARY="$HOME/.mussels/install/host-static/lib/libjson-c.a"               \
-        -D ENABLE_JSON_SHARED=OFF                                                           \
-        -D BZIP2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                   \
-        -D BZIP2_LIBRARY_RELEASE="$HOME/.mussels/install/host-static/lib/libbz2_static.a"   \
-        -D CURL_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                    \
-        -D CURL_LIBRARY="$HOME/.mussels/install/host-static/lib/libcurl.a"                  \
-        -D OPENSSL_ROOT_DIR="$HOME/.mussels/install/host-static"                            \
-        -D OPENSSL_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                 \
-        -D OPENSSL_CRYPTO_LIBRARY="$HOME/.mussels/install/host-static/lib/libcrypto.a"      \
-        -D OPENSSL_SSL_LIBRARY="$HOME/.mussels/install/host-static/lib/libssl.a"            \
-        -D LIBXML2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include/libxml2"         \
-        -D LIBXML2_LIBRARY="$HOME/.mussels/install/host-static/lib/libxml2.a"               \
-        -D PCRE2_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                   \
-        -D PCRE2_LIBRARY="$HOME/.mussels/install/host-static/lib/libpcre2-8.a"              \
-        -D ZLIB_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                    \
-        -D ZLIB_LIBRARY="$HOME/.mussels/install/host-static/lib/libz.a"                     \
-        -D LIBCHECK_INCLUDE_DIR="$HOME/.mussels/install/host-static/include"                \
-        -D LIBCHECK_LIBRARY="$HOME/.mussels/install/host-static/lib/libcheck.a"             \
+        -D ENABLE_STATIC_LIB=OFF                                                            \
+        -D ENABLE_JSON_SHARED=ON                                                            \
     && \
     make DESTDIR="/clamav" -j$(($(nproc) - 1)) install && \
     rm -r \
@@ -124,9 +101,15 @@ RUN apk add --no-cache \
         libstdc++ \
         tini \
         tzdata \
-        libunwind \
+        # Clamav dependencies provided by alpine
+        json-c \
+        libbz2 \
+        libcurl \
         libmilter \
+        libxml2 \
         ncurses-libs \
+        pcre2 \
+        zlib \
     && \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
