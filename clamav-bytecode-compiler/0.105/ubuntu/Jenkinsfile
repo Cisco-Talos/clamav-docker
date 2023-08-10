@@ -9,8 +9,7 @@ properties([
         string(name: 'BRANCH',          defaultValue: 'rel/0.105.0',                                                    description: 'The repository branch for this build'),
         string(name: 'FULL_VERSION',    defaultValue: '0.105.0',                                                        description: 'Full version in X.Y.Z format'),
         string(name: 'FEATURE_VERSION', defaultValue: '0.105',                                                          description: 'Feature version in X.Y format'),
-        string(name: 'REVISION',        defaultValue: '2',                                                              description: 'Revision of image for tag suffix. Starts at 1'),
-        booleanParam(name: 'IS_LATEST', defaultValue: false,                                                            description: 'If "true", will also publish to :latest, and :stable tags.'),
+        booleanParam(name: 'IS_LATEST', defaultValue: true,                                                             description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -70,34 +69,34 @@ node('docker') {
 
                 // Build X.Y.Z-R image
                 sh """
-                docker build --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}" .
+                docker build --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}" .
                 """
 
                 // Publish X.Y.Z-R tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION}
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}
                 """
 
                 // Publish X.Y.Z tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
                 """
 
                 // Publish X.Y tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
                 """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable' and 'latest' tags.
                     sh """
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
 
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${params.REVISION} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     """
                 }
