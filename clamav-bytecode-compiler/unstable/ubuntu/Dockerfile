@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Copyright (C) 2021 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
+# Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
 FROM registry.hub.docker.com/library/ubuntu:20.04 AS builder
 
 LABEL Maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
