@@ -9,7 +9,7 @@ properties([
         string(name: 'BRANCH',          defaultValue: 'rel/1.1',                                    description: 'The repository branch for this build'),
         string(name: 'FULL_VERSION',    defaultValue: '1.1.2',                                      description: 'Full version in X.Y.Z format'),
         string(name: 'FEATURE_VERSION', defaultValue: '1.1',                                        description: 'Feature version in X.Y format'),
-        booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
+        booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
