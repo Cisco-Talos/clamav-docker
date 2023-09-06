@@ -80,8 +80,7 @@ docker_tags_get()
 
 config_docker_buildx()
 {
-	docker buildx install
-	docker buildx create --use --name=builder --driver docker-container --driver-opt image=${DOCKER_BUILDKIT_IMAGE} || true
+  docker context use "clamav-test-mul-arch"
 }
 
 clamav_db_update()
@@ -100,7 +99,7 @@ clamav_db_update()
 		} | \
 		# Pull and Build the updated image with the tag without the _base suffix.
 		# Also push it to the registry.
-		docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --pull --push --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" -
+		docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le --pull --push --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" -
 	done
 }
 

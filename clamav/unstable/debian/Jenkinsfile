@@ -15,7 +15,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('docker-arm64') {
+node('macos-newer') {
     cleanWs()
 
     try {
@@ -47,10 +47,9 @@ node('docker-arm64') {
 
         stage('Build Image') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
-                // Configure docker buildx
+                // Set docker buildx context
                 sh """
-                docker buildx install
-                docker buildx create --use --name=builder --driver docker-container --driver-opt image=multiarch/qemu-user-static || true
+                docker context use "clamav-test-mul-arch"
                 """
 
                 // Make sure we have the latest base image.
@@ -69,7 +68,7 @@ node('docker-arm64') {
                 //
 
                 sh """
-                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:unstable_base" .
+                docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
 
                 # Make a tag with the registry name in it so we can push wherever
                 docker image tag ${params.IMAGE_NAME}:unstable_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base

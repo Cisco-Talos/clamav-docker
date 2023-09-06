@@ -19,7 +19,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('docker-arm64') {
+node('macos-newer') {
     cleanWs()
 
     try {
@@ -51,10 +51,9 @@ node('docker-arm64') {
 
         stage('Build Image') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
-                // Configure docker buildx
+                // Set docker buildx context
                 sh """
-                docker buildx install
-                docker buildx create --use --name=builder --driver docker-container --driver-opt image=multiarch/qemu-user-static || true
+                docker context use "clamav-test-mul-arch"
                 """
 
                 // Make sure we have the latest base image.
@@ -79,36 +78,35 @@ node('docker-arm64') {
                 //  - stable,   stable_base
                 //
 
-                // Build X.Y.Z-R_base image.
+                // Build and push X.Y.Z-R_base image.
                 sh """
-                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}_base" .
+                docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le --tag {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base --push .
                 """
 
-                // Publish X.Y.Z-R_base tag
+                // Pull X.Y.Z-R_base image in local registry for re-tagging
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
+                docker pull {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
                 """
 
                 // Publish X.Y.Z_base tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
+                docker image tag {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
                 """
 
                 // Publish X.Y_base tag
                 sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
+                docker image tag {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
                 """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
+                    docker image tag {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
 
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                    docker image tag {params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     """
                 }
