@@ -80,7 +80,7 @@ docker_tags_get()
 
 config_docker_buildx()
 {
-  docker context use "clamav-test-mul-arch"
+  docker buildx use "clamav-test-mul-arch"
 }
 
 clamav_db_update()

@@ -53,7 +53,7 @@ node('macos-newer') {
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
                 // Set docker buildx context
                 sh """
-                docker context use "clamav-test-mul-arch"
+                docker buildx use "clamav-test-mul-arch"
                 """
 
                 // Make sure we have the latest base image.
