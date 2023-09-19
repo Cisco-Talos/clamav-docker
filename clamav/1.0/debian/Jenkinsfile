@@ -50,6 +50,15 @@ node('macos-newer') {
         """
 
         stage('Build Image') {
+
+            withCredentials([usernamePassword(credentialsId: "clamav_jenkins_svc_mac_minis", usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                // Enable keychain to access keystore, else docker will store credentials in plaintext
+                sh '''
+                security -v unlock-keychain -p "$PASSWORD" ~/Library/Keychains/login.keychain-db
+                security set-keychain-settings -t 36000 -l ~/Library/Keychains/login.keychain-db
+                '''
+            }
+
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
                 // Set docker buildx context
                 sh """
