@@ -141,6 +141,7 @@ node('macos-newer') {
 
                 // Publish X.Y.Z tag (without the _base suffix)
                 sh """
+                docker pull ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}
                 docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
                 docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
                 """
