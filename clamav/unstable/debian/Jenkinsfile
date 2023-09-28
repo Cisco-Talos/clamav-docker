@@ -15,7 +15,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('docker-arm64') {
+node('macos-newer') {
     cleanWs()
 
     try {
@@ -46,11 +46,18 @@ node('docker-arm64') {
         """
 
         stage('Build Image') {
+
+            withCredentials([usernamePassword(credentialsId: "clamav_jenkins_svc_mac_minis", usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                // Enable keychain to access keystore, else docker will store credentials in plaintext
+                sh '''
+                security -v unlock-keychain -p "$PASSWORD" ~/Library/Keychains/login.keychain-db
+                security set-keychain-settings -t 36000 -l ~/Library/Keychains/login.keychain-db
+                '''
+            }
             withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
-                // Configure docker buildx
+                // Set docker buildx context
                 sh """
-                docker buildx install
-                docker buildx create --use --name=builder --driver docker-container --driver-opt image=multiarch/qemu-user-static || true
+                docker buildx use "clamav-test-mul-arch"
                 """
 
                 // Make sure we have the latest base image.
@@ -64,23 +71,15 @@ node('docker-arm64') {
                     docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
                 """
 
-                //
+
                 // Build 'unstable' and 'unstable_base' images.
-                //
-
                 sh """
-                docker buildx build --platform linux/amd64,linux/amd64/v2,linux/amd64/v3,linux/arm64,linux/ppc64le --tag "${params.IMAGE_NAME}:unstable_base" .
-
-                # Make a tag with the registry name in it so we can push wherever
-                docker image tag ${params.IMAGE_NAME}:unstable_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base
-
-                # Push the image/tag
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base
+                docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
                 """
 
                 // Give it some time to add the new unstable_base image.
                 // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
-                sh """
+                """
                 sleep 20
                 """
 

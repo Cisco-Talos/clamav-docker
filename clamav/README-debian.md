@@ -4,7 +4,7 @@
 > which is a work-in-progress that may eventually replace the Alpine-based
 > `clamav` Docker image.
 >
-> **We haven't started publishing the `clamav-debian` images yet.**
+> `clamav-debian` images are multi-arch images with supported platforms.**
 
 ClamAV can be run within a Docker container. This provides isolation from other
 processes by running it in a containerized environment. If new or unfamiliar
