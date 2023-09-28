@@ -8,7 +8,7 @@ We publish the following Docker images for the ClamAV project:
 
   Readme for the [`clamav` image is here](./clamav/README-alpine.md).
 
-* [`clamav-debian`](https://hub.docker.com/r/clamav/clamav-debian/tags): ***Not published yet***. The intention is to build this as a multi-arch image for amd64, arm64, and ppc64le. *This is a work-in-progress and may eventually replace the Alpine-based image.*
+* [`clamav-debian`](https://hub.docker.com/r/clamav/clamav-debian/tags): This is a multi-arch image for amd64, arm64, and ppc64le. *This may eventually replace the Alpine-based image.*
 
   Based on Debian Linux.
 
