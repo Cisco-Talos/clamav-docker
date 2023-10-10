@@ -117,6 +117,7 @@ RUN apt-get update && apt-get install -y \
         libxml2 \
         zlib1g \
         tzdata \
+        netcat \
     && \
     rm -rf /var/cache/apt/archives && \
     groupadd -g 1000 "clamav" && \
