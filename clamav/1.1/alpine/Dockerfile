@@ -119,6 +119,7 @@ RUN apk add --no-cache \
 COPY --from=builder "/clamav" "/"
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
 COPY "./scripts/docker-entrypoint.sh" "/init"
+COPY "./scripts/docker-entrypoint-unprivileged.sh" "/init-unpriviledged"
 
 HEALTHCHECK --start-period=6m CMD clamdcheck.sh
 
