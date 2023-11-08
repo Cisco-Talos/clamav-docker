@@ -39,9 +39,9 @@ RUN apk update && apk upgrade \
         py3-pytest \
         # For Rust/Cargo
         cargo \
-        rust \
-    && \
-    mkdir -p "./build" && cd "./build" && \
+        rust
+
+RUN mkdir -p "./build" && cd "./build" && \
     cmake .. \
         -D CMAKE_BUILD_TYPE="Release"                                                       \
         -D CMAKE_INSTALL_PREFIX="/usr"                                                      \
@@ -109,9 +109,9 @@ RUN apk add --no-cache \
         libxml2 \
         ncurses-libs \
         pcre2 \
-        zlib \
-    && \
-    addgroup -S "clamav" && \
+        zlib
+
+RUN addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
     chown -R clamav:clamav /var/lib/clamav
