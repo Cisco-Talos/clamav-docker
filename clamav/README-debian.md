@@ -202,6 +202,18 @@ To do so, you have two options:
 If you're thinking about running multiple containers that share a single
 database volume, [here are some notes on how this might work](#multiple-containers-sharing-the-same-mounted-databases).
 
+### Running ClamD using non-root user using --user and --entrypoint 
+
+You can run a container using a non-root user "clamav" with unprivileged entrypoint script.   
+ Just run:
+```bash
+docker run -it --rm \
+      --user "clamav"
+      --entrypoint /init-unprivileged
+      --name "clam_container_01" \
+    clamav/clamav-debian:unstable_base
+```
+
 ## Running Clam(D)Scan
 
 Scanning files using `clamscan` or `clamdscan` is possible in various ways with
