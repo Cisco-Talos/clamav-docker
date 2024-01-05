@@ -30,7 +30,7 @@ RUN apt update && apt install -y \
         libcurl4-openssl-dev \
         libjson-c-dev \
         libmilter-dev \
-        libncurses5-dev \
+        libncurses-dev \
         libpcre2-dev \
         libssl-dev \
         libxml2-dev \
@@ -112,7 +112,7 @@ RUN apt-get update && apt-get install -y \
         libssl1.1 \
         libjson-c5 \
         libmilter1.0.1 \
-        libncurses5 \
+        libncurses6 \
         libpcre2-8-0 \
         libxml2 \
         zlib1g \
