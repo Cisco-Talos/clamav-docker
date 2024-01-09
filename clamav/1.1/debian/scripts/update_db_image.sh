@@ -99,8 +99,17 @@ clamav_db_update()
 		} | \
 		# Pull and Build the updated image with the tag without the _base suffix.
 		# Also push it to the registry.
-		docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le --pull --push --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" -
+		docker buildx build --platform linux/amd64 --pull --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
+		docker buildx build --platform linux/arm64 --pull --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
+		docker buildx build --platform linux/ppc64le --pull --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
 	done
+
+	docker manifest create "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" \
+           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" \
+           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" \
+           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le"
+
+	docker manifest push --purge "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}"
 }
 
 main()
