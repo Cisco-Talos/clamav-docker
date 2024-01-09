@@ -50,16 +50,16 @@ node('macos-newer') {
         """
 
         stage('Build Image') {
-
-            withCredentials([usernamePassword(credentialsId: "clamav_jenkins_svc_mac_minis", usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+            withVault([vaultSecrets: [[ path: "clamavbuild-kv/clamav_jenkins_svc_mac_minis", engineVersion: 1, secretValues:
+                        [[envVar: 'USER', vaultKey: 'username'],[envVar: 'PASSWORD', vaultKey: 'password']]]]]) {
                 // Enable keychain to access keystore, else docker will store credentials in plaintext
                 sh '''
                 security -v unlock-keychain -p "$PASSWORD" ~/Library/Keychains/login.keychain-db
                 security set-keychain-settings -t 36000 -l ~/Library/Keychains/login.keychain-db
                 '''
             }
-
-            withCredentials([usernamePassword(credentialsId: "${params.REGISTRY_CREDS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWD')]) {
+            withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.REGISTRY_CREDS}", engineVersion: 1, secretValues:
+                        [[envVar: 'DOCKER_USER', vaultKey: 'username'],[envVar: 'DOCKER_PASSWD', vaultKey: 'password']]]]]) {
                 // Set docker buildx context
                 sh """
                 docker buildx use "clamav-test-mul-arch"
