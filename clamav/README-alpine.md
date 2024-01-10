@@ -194,8 +194,8 @@ database volume, [here are some notes on how this might work](#multiple-containe
 
 ### Running ClamD using non-root user using --user and --entrypoint 
 
-You can run a container using a non-root user "clamav" with unprivileged entrypoint script.   
- Just run:
+You can run a container using the non-root user "clamav" with the unprivileged entrypoint script. To do this with Docker, you will need to add these two options: `--user "clamav" --entrypoint /init-unprivileged`
+For example:
 ```bash
 docker run -it --rm \
       --user "clamav"
