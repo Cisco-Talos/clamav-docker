@@ -117,12 +117,10 @@ clamav_db_update()
 
 	done
 
-	docker manifest create "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" \
-           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" \
-           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" \
-           --amend "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le"
-
-	docker manifest push --purge "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}"
+  docker buildx imagetools  create -t  "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" \
+           "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" \
+           "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" \
+           "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le"
 }
 
 main()
