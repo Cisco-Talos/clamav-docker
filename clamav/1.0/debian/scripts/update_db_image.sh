@@ -90,7 +90,8 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/amd64 --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
+      docker buildx build --platform linux/amd64 --pull --rm --push \
+        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
 
     {
       # Starting with the image tag with the _base suffix
@@ -98,7 +99,8 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/arm64 --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
+      docker buildx build --platform linux/arm64 --pull --rm --push \
+        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
 
     {
       # Starting with the image tag with the _base suffix
@@ -106,7 +108,8 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/ppc64le --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
+      docker buildx build --platform linux/ppc64le --pull --rm --push \
+        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
 
   done
 
