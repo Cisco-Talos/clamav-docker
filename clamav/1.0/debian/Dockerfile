@@ -44,9 +44,9 @@ RUN apt update && apt install -y \
     && \
     . $CARGO_HOME/env \
     && \
-    rustup update
-
-RUN mkdir -p "./build" && cd "./build" \
+    rustup update \
+    && \
+    mkdir -p "./build" && cd "./build" \
     && \
     cmake .. \
           -DCARGO_HOME=$CARGO_HOME \
@@ -119,9 +119,8 @@ RUN apt-get update && apt-get install -y \
         tzdata \
         netcat \
     && \
-    rm -rf /var/cache/apt/archives
-
-RUN groupadd -g 1000 "clamav" && \
+    rm -rf /var/cache/apt/archives && \
+    groupadd -g 1000 "clamav" && \
     useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 1000 -c "Clam Antivirus" clamav && \
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
     chown -R clamav:clamav /var/lib/clamav
