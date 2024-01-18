@@ -90,7 +90,7 @@ node('macos-newer') {
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le \
+                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
                     --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
                     --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                     --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
@@ -100,7 +100,7 @@ node('macos-newer') {
                     """
                 } else {
                      sh """
-                        docker buildx build --platform linux/amd64,linux/arm64,linux/ppc64le \
+                        docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
