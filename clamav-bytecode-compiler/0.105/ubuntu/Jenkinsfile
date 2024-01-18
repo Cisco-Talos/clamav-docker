@@ -71,7 +71,7 @@ node('docker') {
 
                 // Build X.Y.Z-R image
                 sh """
-                docker build --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}" .
+                docker build --no-cache --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}" .
                 """
 
                 // Publish X.Y.Z-R tag
