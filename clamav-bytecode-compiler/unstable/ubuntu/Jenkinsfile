@@ -64,7 +64,7 @@ node('docker') {
                 //
 
                 sh """
-                docker build --tag "${params.IMAGE_NAME}:unstable" .
+                docker build --no-cache --tag "${params.IMAGE_NAME}:unstable" .
 
                 # Make a tag with the registry name in it so we can push wherever
                 docker image tag ${params.IMAGE_NAME}:unstable ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
