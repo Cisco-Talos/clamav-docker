@@ -79,14 +79,25 @@ branch.
 ## Building the ClamAV image
 
 While it is recommended to pull the image from our
-[Docker Hub registry](https://hub.docker.com/u/clamav/clamavv-debian), some may
-want to build the image locally instead. All that is needed is:
+[Docker Hub registry](https://hub.docker.com/u/clamav/clamav-debian), some may
+want to build the image locally instead.
+
+To do so, you must get a copy of the ClamAV source code such as a gitclone of
+the [ClamAV GitHub source](https://github.com/Cisco-Talos/clamav).
+Then copy in the relevant `Dockerfile` and `scripts/` directory for your
+ClamAV version from
+[the ClamAV Docker repository](https://github.com/Cisco-Talos/clamav-docker/tree/main/clamav).
+Then you can build your image. E.g.:
 ```bash
+git clone https://github.com/Cisco-Talos/clamav-docker.git
+git clone --depth 1 https://github.com/Cisco-Talos/clamav.git --branch rel/1.2
+
+cp -r clamav-docker/clamav/1.2/debian/Dockerfile clamav/.
+cp -r clamav-docker/clamav/1.2/debian/scripts clamav/.
+cd clamav
+
 docker build --tag "clamav:TICKET-123" .
 ```
-in the current directory. This will build the ClamAV image and tag it with
-the name "clamav:TICKET-123". Any name can generally be used and it is this
-name that needs to be referred to later when running the image.
 
 ## Running ClamD
 
@@ -202,7 +213,7 @@ To do so, you have two options:
 If you're thinking about running multiple containers that share a single
 database volume, [here are some notes on how this might work](#multiple-containers-sharing-the-same-mounted-databases).
 
-### Running ClamD using non-root user using --user and --entrypoint 
+### Running ClamD using non-root user using --user and --entrypoint
 
 You can run a container using the non-root user "clamav" with the unprivileged entrypoint script. To do this with Docker, you will need to add these two options: `--user "clamav" --entrypoint /init-unprivileged`
 For example:
