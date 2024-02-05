@@ -4,12 +4,12 @@ properties([
         string(name: 'REGISTRY_CREDS',  defaultValue: 'dockerhub',                                  description: 'The Jenkins credentials ID for the given registry'),
         string(name: 'WEBEX_SPACE_ID',  defaultValue: 'b204c1a0-6862-11e8-9dbc-93ef3cfef186',       description: 'ID of Webex space to push pass/fail notifications'),
         string(name: 'NAMESPACE',       defaultValue: 'clamav',                                     description: 'The docker namespace to use'),
-        string(name: 'IMAGE_NAME',      defaultValue: 'clamav-debian',                              description: 'The docker image name to use'),
+        string(name: 'IMAGE_NAME',      defaultValue: 'clamav',                                     description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
-        string(name: 'BRANCH',          defaultValue: 'rel/1.1',                                    description: 'The repository branch for this build'),
-        string(name: 'FULL_VERSION',    defaultValue: '1.1.3',                                      description: 'Full version in X.Y.Z format'),
-        string(name: 'FEATURE_VERSION', defaultValue: '1.1',                                        description: 'Feature version in X.Y format'),
-        booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
+        string(name: 'BRANCH',          defaultValue: 'rel/1.3',                                    description: 'The repository branch for this build'),
+        string(name: 'FULL_VERSION',    defaultValue: '1.3.0',                                      description: 'Full version in X.Y.Z format'),
+        string(name: 'FEATURE_VERSION', defaultValue: '1.3',                                        description: 'Feature version in X.Y format'),
+        booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -19,7 +19,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('macos-newer') {
+node('docker') {
     cleanWs()
 
     try {
@@ -46,28 +46,15 @@ node('macos-newer') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/debian/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/debian/scripts .
+        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/scripts .
         """
 
         stage('Build Image') {
-            withVault([vaultSecrets: [[ path: "clamavbuild-kv/clamav_jenkins_svc_mac_minis", engineVersion: 1, secretValues:
-                        [[envVar: 'USER', vaultKey: 'username'],[envVar: 'PASSWORD', vaultKey: 'password']]]]]) {
-                // Enable keychain to access keystore, else docker will store credentials in plaintext
-                sh '''
-                security -v unlock-keychain -p "$PASSWORD" ~/Library/Keychains/login.keychain-db
-                security set-keychain-settings -t 36000 -l ~/Library/Keychains/login.keychain-db
-                '''
-            }
             withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.REGISTRY_CREDS}", engineVersion: 1, secretValues:
                         [[envVar: 'DOCKER_USER', vaultKey: 'username'],[envVar: 'DOCKER_PASSWD', vaultKey: 'password']]]]]) {
-                // Set docker buildx context
-                sh """
-                docker buildx use "clamav-test-mul-arch"
-                """
-
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:11-slim
+                docker pull alpine:latest
                 """
 
                 // Login to docker hub
@@ -87,25 +74,38 @@ node('macos-newer') {
                 //  - stable,   stable_base
                 //
 
+                // Build X.Y.Z-R_base image.
+                sh """
+                docker build --no-cache --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base" .
+                """
+
+                // Publish X.Y.Z-R_base tag
+                sh """
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
+                """
+
+                // Publish X.Y.Z_base tag
+                sh """
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
+                """
+
+                // Publish X.Y_base tag
+                sh """
+                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
+                """
+
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
-                    --push .
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
+
+                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     """
-                } else {
-                     sh """
-                        docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
-                        --push .
-                     """
                 }
 
                 // The update_db_image.sh script will query for tags during the update process.
@@ -128,24 +128,26 @@ node('macos-newer') {
                 """
 
                 // Publish X.Y.Z tag (without the _base suffix)
+                sh """
+                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
+                """
+
+                // Publish X.Y tag (without the _base suffix)
+                sh """
+                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable' and 'latest' tags.
                     sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
-                    """
-                } else {
-                    sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
 
+                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     """
-
                 }
 
                 // log-out (again)
