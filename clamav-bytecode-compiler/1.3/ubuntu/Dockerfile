@@ -37,7 +37,7 @@ RUN apt-get update -y && \
     make DESTDIR="/clambc" install && \
     ctest -V
 
-FROM registry.hub.docker.com/library/ubuntu:22.04
+FROM registry.hub.docker.com/library/ubuntu:23.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CC=clang-16
@@ -48,6 +48,6 @@ COPY --from=builder "/clambc" "/"
 RUN apt-get -y update && \
     apt install -y \
         python3 \
-        clang-8 \
+        clang-16 \
     && \
     rm -rf /var/lib/apt/lists/*
