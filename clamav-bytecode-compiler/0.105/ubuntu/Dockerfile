@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
-FROM registry.hub.docker.com/library/ubuntu:20.04 AS builder
+FROM registry.hub.docker.com/library/ubuntu:23.04 AS builder
 
 LABEL Maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
 
@@ -9,8 +9,8 @@ WORKDIR /src
 COPY . /src
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CC=clang-8
-ENV CXX=clang++-8
+ENV CC=clang-16
+ENV CXX=clang++-16
 
 RUN apt-get update -y && \
     apt-get install -y \
@@ -19,15 +19,13 @@ RUN apt-get update -y && \
         binutils \
         git \
         python3 \
-        python3-distutils \
-        python3-pip \
+        python3-pytest \
         cmake \
         make \
-        clang-8 \
+        clang-16 \
         clamav \
     && \
     rm -rf /var/lib/apt/lists/* && \
-    python3 -m pip install pytest && \
     mkdir build && \
     cd build && \
     cmake .. -G "Unix Makefiles" \
@@ -39,11 +37,11 @@ RUN apt-get update -y && \
     make DESTDIR="/clambc" install && \
     ctest -V
 
-FROM registry.hub.docker.com/library/ubuntu:20.04
+FROM registry.hub.docker.com/library/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV CC=clang-8
-ENV CXX=clang++-8
+ENV CC=clang-16
+ENV CXX=clang++-16
 
 COPY --from=builder "/clambc" "/"
 
