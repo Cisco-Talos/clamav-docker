@@ -55,7 +55,7 @@ node('docker') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull ubuntu:20.04
+                docker pull ubuntu:23.04
                 """
 
                 // Login to docker hub
