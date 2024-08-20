@@ -75,7 +75,7 @@ node('macos-newer') {
 
                 // Build 'unstable' and 'unstable_base' images.
                 sh """
-                docker buildx build  --annotation "org.opencontainers.image.url=${params.REPOSITORY}" --annotation "org.opencontainers.image.source=${params.REPOSITORY}" --annotation "org.opencontainers.image.created=$(date -Iseconds)" --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
+                docker buildx build --provenance mode=max,builder-id="${BUILD_URL}" --annotation "org.opencontainers.image.url=${params.REPOSITORY}" --annotation "org.opencontainers.image.source=${params.REPOSITORY}" --annotation "org.opencontainers.image.created=$(date -Iseconds)" --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
                 """
 
                 // Give it some time to add the new unstable_base image.
