@@ -76,7 +76,7 @@ node('docker') {
 
                 // Build X.Y.Z-R_base image.
                 sh """
-                docker build --no-cache --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base" .
+                docker build --annotation "org.opencontainers.image.url=${params.REPOSITORY}" --annotation "org.opencontainers.image.source=${params.REPOSITORY}" --annotation "org.opencontainers.image.version=${params.FULL_VERSION}" --annotation "org.opencontainers.image.ref.name=${params.BRANCH}" --annotation "org.opencontainers.image.created=$(date -Iseconds)" --no-cache --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base" .
                 """
 
                 // Publish X.Y.Z-R_base tag
