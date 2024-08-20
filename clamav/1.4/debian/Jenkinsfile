@@ -91,6 +91,7 @@ node('macos-newer') {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
                     docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                    --sbom=true \
                     --provenance mode=max,builder-id="${BUILD_URL}" \
                     --annotation "org.opencontainers.image.url=${params.REPOSITORY}" --annotation "org.opencontainers.image.source=${params.REPOSITORY}" --annotation "org.opencontainers.image.version=${params.FULL_VERSION}" --annotation "org.opencontainers.image.ref.name=${params.BRANCH}" --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
                     --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
