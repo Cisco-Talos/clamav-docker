@@ -6,7 +6,7 @@ with Docker, containers or cgroups see [docker.com](https://www.docker.com).
 
 ## The official images on Docker Hub
 
-ClamAV image tags [on Docker Hub](https://hub.docker.com/u/clamav/clamav)
+ClamAV image tags [on Docker Hub](https://hub.docker.com/r/clamav/clamav)
 follow this naming convention:
 
   - `clamav/clamav:<version>`: A release preloaded with signature databases.
@@ -69,7 +69,7 @@ You can use the `unstable` version (i.e. `clamav/clamav:unstable` or
 ## Building the ClamAV image
 
 While it is recommended to pull the image from our
-[Docker Hub registry](https://hub.docker.com/u/clamav/clamav), some may
+[Docker Hub registry](https://hub.docker.com/r/clamav/clamav), some may
 want to build the image locally instead.
 
 To do so, you must get a copy of the ClamAV source code such as a gitclone of
