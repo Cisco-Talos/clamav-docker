@@ -13,7 +13,7 @@ with Docker, containers or cgroups see [docker.com](https://www.docker.com).
 ## The official images on Docker Hub
 
 ClamAV Debian-based image tags
-[on Docker Hub](https://hub.docker.com/u/clamav/clamav-debian) follow this
+[on Docker Hub](https://hub.docker.com/r/clamav/clamav-debian) follow this
 naming convention:
 
   - `clamav/clamav-debian:<version>`: A release preloaded with signature
@@ -79,7 +79,7 @@ branch.
 ## Building the ClamAV image
 
 While it is recommended to pull the image from our
-[Docker Hub registry](https://hub.docker.com/u/clamav/clamav-debian), some may
+[Docker Hub registry](https://hub.docker.com/r/clamav/clamav-debian), some may
 want to build the image locally instead.
 
 To do so, you must get a copy of the ClamAV source code such as a gitclone of
