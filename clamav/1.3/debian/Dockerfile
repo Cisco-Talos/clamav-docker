@@ -9,8 +9,8 @@ WORKDIR /src
 
 COPY . /src/
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV CARGO_HOME /src/build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CARGO_HOME=/src/build
 
 RUN apt update && apt install -y \
         cmake \
@@ -104,7 +104,7 @@ EXPOSE 3310
 EXPOSE 7357
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ Etc/UTC
+ENV TZ=Etc/UTC
 
 RUN apt-get update && apt-get install -y \
         libbz2-1.0 \
