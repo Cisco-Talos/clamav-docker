@@ -8,7 +8,7 @@
 # needing to learn about --entrypoint
 # https://github.com/docker-library/official-images#consistency
 
-set -eu
+set -u
 
 # run command if it is not starting with a "-" and is an executable in PATH
 if [ "${#}" -gt 0 ] && \
@@ -24,37 +24,69 @@ else
 	fi
 	# else default to running clamav's servers
 
-	# Ensure we have some virus data, otherwise clamd refuses to start
-	if [ ! -f "/var/lib/clamav/main.cvd" ]; then
-		echo "Updating initial database"
-		freshclam --foreground --stdout
-	fi
+	# Ensure we have some up to date virus data, otherwise clamd refuses to start
+	echo "Updating initial database"
+	freshclam --foreground --stdout
 
 	if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
 		echo "Starting Freshclamd"
-		freshclam \
-		          --checks="${FRESHCLAM_CHECKS:-1}" \
-		          --daemon \
-		          --foreground \
-		          --stdout \
-		          --user="clamav" \
-			  &
+
+		while true; do
+			ps aux |grep freshclam |grep -q -v grep
+			status=$?
+
+			if [ $status -ne 0 ]; then
+				freshclam \
+						--checks="${FRESHCLAM_CHECKS:-1}" \
+						--daemon \
+						--foreground \
+						--stdout \
+						--user="clamav" \
+					&
+			else
+				break;
+			fi
+
+			if [ "${_timeout:=0}" -gt "${FRESHCLAM_STARTUP_TIMEOUT:=600}" ]; then
+				echo
+				echo "Failed to start freshclam"
+				exit 1
+			fi
+
+			ps aux |grep freshclam |grep -q -v grep
+			status=$?
+			
+			if [ $status -ne 0 ]; then
+				echo "freshclam not started yet, retrying (${_timeout}/${FRESHCLAM_STARTUP_TIMEOUT}) ..."
+				sleep 3
+				_timeout="$((_timeout + 1))"
+			fi
+		done
 	fi
 
 	if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
 		echo "Starting ClamAV"
+
 		if [ -S "/tmp/clamd.sock" ]; then
 			unlink "/tmp/clamd.sock"
 		fi
-		clamd --foreground &
+
 		while [ ! -S "/tmp/clamd.sock" ]; do
-			if [ "${_timeout:=0}" -gt "${CLAMD_STARTUP_TIMEOUT:=1800}" ]; then
+			ps aux |grep clamd |grep -q -v grep
+			status=$?
+
+			if [ $status -ne 0 ]; then
+				clamd --foreground &
+			fi
+
+			if [ "${_timeout:=0}" -gt "${CLAMD_STARTUP_TIMEOUT:=600}" ]; then
 				echo
 				echo "Failed to start clamd"
 				exit 1
 			fi
-			printf "\r%s" "Socket for clamd not found yet, retrying (${_timeout}/${CLAMD_STARTUP_TIMEOUT}) ..."
-			sleep 1
+
+			echo "Socket for clamd not found yet, retrying (${_timeout}/${CLAMD_STARTUP_TIMEOUT}) ..."
+			sleep 3
 			_timeout="$((_timeout + 1))"
 		done
 		echo "socket found, clamd started."
@@ -62,7 +94,33 @@ else
 
 	if [ "${CLAMAV_NO_MILTERD:-true}" != "true" ]; then
 		echo "Starting clamav milterd"
-		clamav-milter &
+		
+		while true; do
+			ps aux |grep clamav-milter |grep -q -v grep
+			status=$?
+
+			if [ $status -ne 0 ]; then
+				clamav-milter &
+			else
+				break;
+			fi
+
+			if [ "${_timeout:=0}" -gt "${MILTER_STARTUP_TIMEOUT:=600}" ]; then
+				echo
+				echo "Failed to start clamav-milter"
+				exit 1
+			fi
+
+
+			ps aux |grep clamav-milter |grep -q -v grep
+			status=$?
+			
+			if [ $status -ne 0 ]; then
+				echo "clamav-milter not started yet, retrying (${_timeout}/${MILTER_STARTUP_TIMEOUT}) ..."
+				sleep 3
+				_timeout="$((_timeout + 1))"
+			fi
+		done
 	fi
 
 	# Wait forever (or until canceled)
