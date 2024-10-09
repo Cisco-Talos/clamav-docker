@@ -3,7 +3,7 @@
 # Copyright (C) 2020 Olliver Schinagl <oliver@schinagl.nl>
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
 
-FROM index.docker.io/library/debian:11-slim AS builder
+FROM index.docker.io/library/debian:12-slim AS builder
 
 WORKDIR /src
 
@@ -96,7 +96,7 @@ RUN apt update && apt install -y \
     && \
     ctest -V
 
-FROM index.docker.io/library/debian:11-slim
+FROM index.docker.io/library/debian:12-slim
 
 LABEL maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
 
@@ -109,7 +109,7 @@ ENV TZ=Etc/UTC
 RUN apt-get update && apt-get install -y \
         libbz2-1.0 \
         libcurl4 \
-        libssl1.1 \
+        libssl3 \
         libjson-c5 \
         libmilter1.0.1 \
         libncurses6 \
@@ -117,7 +117,7 @@ RUN apt-get update && apt-get install -y \
         libxml2 \
         zlib1g \
         tzdata \
-        netcat \
+        netcat-openbsd \
     && \
     rm -rf /var/cache/apt/archives && \
     groupadd -g 1000 "clamav" && \
