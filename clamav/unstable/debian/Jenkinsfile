@@ -63,7 +63,7 @@ node('macos-newer') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:11-slim
+                docker pull debian:12-slim
                 """
 
                 // Login to docker hub
