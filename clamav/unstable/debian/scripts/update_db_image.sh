@@ -93,8 +93,6 @@ clamav_db_update() {
       docker buildx build --platform linux/amd64 --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
         --annotation "org.opencontainers.image.url=${REPOSITORY}" \
         --annotation "org.opencontainers.image.source=${REPOSITORY}" \
-        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
-        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
         --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
         --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
 
@@ -107,8 +105,6 @@ clamav_db_update() {
       docker buildx build --platform linux/arm64 --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
         --annotation "org.opencontainers.image.url=${REPOSITORY}" \
         --annotation "org.opencontainers.image.source=${REPOSITORY}" \
-        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
-        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
         --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
         --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
 
@@ -121,8 +117,6 @@ clamav_db_update() {
       docker buildx build --platform linux/ppc64le --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
         --annotation "org.opencontainers.image.url=${REPOSITORY}" \
         --annotation "org.opencontainers.image.source=${REPOSITORY}" \
-        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
-        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
         --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
         --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
   done
