@@ -79,7 +79,7 @@ node('docker') {
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                    docker buildx build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
                                  --annotation org.opencontainers.image.url=${params.REPOSITORY} \
                                  --annotation org.opencontainers.image.source=${params.REPOSITORY} \
                                  --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
@@ -95,7 +95,7 @@ node('docker') {
                 }
                 else {
                     sh """
-                    docker build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                    docker buildx build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
                                  --annotation org.opencontainers.image.url=${params.REPOSITORY} \
                                  --annotation org.opencontainers.image.source=${params.REPOSITORY} \
                                  --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
