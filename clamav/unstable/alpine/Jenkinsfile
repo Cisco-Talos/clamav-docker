@@ -72,6 +72,7 @@ node('docker') {
                     --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
                     --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
                     --tag "${params.IMAGE_NAME}:unstable_base" --push .
+                """
 
                 // Give it some time to add the new unstable_base image.
                 // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.

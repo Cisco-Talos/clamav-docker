@@ -87,7 +87,7 @@ node('macos-newer') {
 
                 // Give it some time to add the new unstable_base image.
                 // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
-                """
+                sh """
                 sleep 20
                 """
 

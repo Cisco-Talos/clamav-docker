@@ -64,13 +64,14 @@ node('docker') {
                 //
 
                 sh """
-                docker build --no-cache --tag "${params.IMAGE_NAME}:unstable" .
-
-                # Make a tag with the registry name in it so we can push wherever
-                docker image tag ${params.IMAGE_NAME}:unstable ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
-
-                # Push the image/tag
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable
+                docker build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                             --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                             --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                             --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                             --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                             --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable \
+                             --no-cache --push .
                 """
 
                 // log-out
