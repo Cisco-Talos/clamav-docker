@@ -59,8 +59,8 @@ docker_tags_get() {
     tr '}' '\n' |
     sed -n -e 's|.*name:\(.*\)$|\1|p')"
 
-	echo "Tags:"
-	echo "${_tags}"
+  echo "Tags:"
+  echo "${_tags}"
 
   for _tag in ${_tags}; do
     # Only get the tags that have the _base suffix
@@ -90,8 +90,13 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/amd64 --pull --rm --push \
-        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
+      docker buildx build --platform linux/amd64 --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
+        --annotation "org.opencontainers.image.url=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.source=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
+        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
+        --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
+        --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-amd64" -
 
     {
       # Starting with the image tag with the _base suffix
@@ -99,8 +104,13 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/arm64 --pull --rm --push \
-        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
+      docker buildx build --platform linux/arm64 --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
+        --annotation "org.opencontainers.image.url=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.source=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
+        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
+        --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
+        --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-arm64" -
 
     {
       # Starting with the image tag with the _base suffix
@@ -108,9 +118,13 @@ clamav_db_update() {
       # Update the database
       echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
     } | \
-      docker buildx build --platform linux/ppc64le --pull --rm --push \
-        --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
-
+      docker buildx build --platform linux/ppc64le --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
+        --annotation "org.opencontainers.image.url=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.source=${REPOSITORY}" \
+        --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
+        --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
+        --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
+        --pull --rm --push --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}-ppc64le" -
   done
 
   docker buildx imagetools create -t "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" \

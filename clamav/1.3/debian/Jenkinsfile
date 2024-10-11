@@ -87,25 +87,40 @@ node('macos-newer') {
                 //  - stable,   stable_base
                 //
 
+                // Build X.Y.Z-R_base image.
+
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
-                    --push .
-                    """
-                } else {
-                     sh """
                         docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
-                        --push .
-                     """
+                            --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                            --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                            --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                            --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                            --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                            --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
+                            --push .
+                    """
+                }
+                else {
+                    sh """
+                        docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                            --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                            --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                            --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                            --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                            --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                            --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                            --push .
+                    """
                 }
 
                 // The update_db_image.sh script will query for tags during the update process.
@@ -138,14 +153,13 @@ node('macos-newer') {
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
                     """
-                } else {
+                }
+                else {
                     sh """
                         docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
-
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
                     """
-
                 }
 
                 // log-out (again)

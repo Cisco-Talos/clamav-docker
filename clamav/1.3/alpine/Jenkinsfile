@@ -75,36 +75,36 @@ node('docker') {
                 //
 
                 // Build X.Y.Z-R_base image.
-                sh """
-                docker build --no-cache --tag "${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base" .
-                """
-
-                // Publish X.Y.Z-R_base tag
-                sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base
-                """
-
-                // Publish X.Y.Z_base tag
-                sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base
-                """
-
-                // Publish X.Y_base tag
-                sh """
-                docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
-                """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
-                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base
-
-                    docker image tag ${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
-                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                    docker build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                                 --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                                 --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                                 --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
+                                 --no-cache --push .
+                    """
+                }
+                else {
+                    sh """
+                    docker build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                                 --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                                 --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                                 --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                                 --no-cache --push .
                     """
                 }
 
@@ -128,25 +128,22 @@ node('docker') {
                 """
 
                 // Publish X.Y.Z tag (without the _base suffix)
-                sh """
-                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}
-                """
-
-                // Publish X.Y tag (without the _base suffix)
-                sh """
-                docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
-                docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
-                """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable' and 'latest' tags.
                     sh """
-                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
-                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable
-
-                    docker image tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
-                    docker image push ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                    """
+                }
+                else {
+                    sh """
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
                     """
                 }
 

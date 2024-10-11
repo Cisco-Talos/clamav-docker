@@ -92,9 +92,13 @@ clamav_db_update()
 			echo "RUN freshclam --foreground --stdout && rm /var/lib/clamav/freshclam.dat || rm /var/lib/clamav/mirrors.dat || true"
 		} | \
 		# Pull and Build the updated image with the tag without the _base suffix.
-		docker image build --pull --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" -
-		# Push the updated image with the tag without the _base suffix.
-		docker image push "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}"
+    docker build --sbom=true --provenance mode=max,builder-id="${BUILD_URL}" \
+       --annotation "org.opencontainers.image.url=${REPOSITORY}" \
+       --annotation "org.opencontainers.image.source=${REPOSITORY}" \
+       --annotation "org.opencontainers.image.version=${FULL_VERSION}" \
+       --annotation "org.opencontainers.image.ref.name=${BRANCH}" \
+       --annotation "org.opencontainers.image.created=$(date -Iseconds)" \
+       --pull --push --rm --tag "${docker_registry}/${clamav_docker_namespace}/${clamav_docker_image}:${_tag%%_base}" -
 	done
 }
 
