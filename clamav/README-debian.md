@@ -343,7 +343,7 @@ added:
     --env 'CLAMAV_NO_MILTERD=false'
 ```
 
-Further more, all of the configuration files that live in `/etc/clamav` can be
+Furthermore, all the configuration files that live in `/etc/clamav` can be
 overridden by doing a volume-mount to the specific file. The following argument
 can be added for this purpose. The example uses the entire configuration
 directory, but this can be supplied multiple times if individual files deem to
@@ -357,6 +357,39 @@ run at least once during container startup if there is no virus database.
 While not recommended, the virus database location itself `/var/lib/clamav/`
 could be a persistent Docker volume. This however is slightly more advanced
 and out of scope of this document.
+
+### Automatically apply environment variables to configurations
+
+You can configure both ClamAV and FreshClam dynamically by passing environment variables with specific prefixes when running the container. These variables will be automatically applied to the corresponding configuration files (`/etc/clamav/clamd.conf` for ClamAV and `/etc/clamav/freshclam.conf` for FreshClam).
+
+#### Usage Example
+
+To update ClamAV and FreshClam configurations using environment variables, run the container with the `-e` flag:
+
+```bash
+docker run --rm -e CLAMD_CONF_LogTime=no -e CLAMD_CONF_MaxThreads=5 -e FRESHCLAM_CONF_Checks=24 your-clamav-image
+```
+
+This will result in:
+- `/etc/clamav/clamd.conf`:
+```
+LogTime no
+MaxThreads 5
+```
+- `/etc/clamav/freshclam.conf`:
+```
+Checks 24
+```
+
+How It Works
+
+- **Prefix**: Use `CLAMD_CONF_` for ClamAV settings and `FRESHCLAM_CONF_` for FreshClam settings.
+- **Key/Value Mapping**: The part after the prefix is the configuration key, and the environment variable's value is applied in the respective config file.
+
+For example, `CLAMD_CONF_LogTime=no` becomes `LogTime no` in `clamd.conf`, and `FRESHCLAM_CONF_Checks=24` becomes `Checks 24` in `freshclam.conf`.
+
+The script processes these variables on container startup, replacing existing keys or appending new ones as needed.
+
 
 ## Connecting to the container
 
@@ -452,7 +485,7 @@ the various systems somewhat.
 
 Of course, nothing in life is free, and so there is some overhead. Disk-space
 being the most prominent one. The Docker container might have some duplication
-of files for example between the host and the container. Further more, also RAM
+of files for example between the host and the container. Furthermore, also RAM
 memory may be duplicated for each instance, as there is no RAM-deduplication.
 Both of which can be solved on the host however. A filesystem that supports
 disk-deduplication and a memory manager that does RAM-deduplication.
