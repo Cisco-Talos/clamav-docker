@@ -17,6 +17,23 @@ fi
 # Assign ownership to the database directory, just in case it is a mounted volume
 chown -R clamav:clamav /var/lib/clamav
 
+# configure freshclam.conf and clamd.conf from env variables if present
+env | grep "^CLAMD_CONF_" | while IFS="=" read -r KEY VALUE; do
+    TRIMMED="${KEY#CLAMD_CONF_}"
+
+    grep -q "^#$TRIMMED " /etc/clamav/clamd.conf && \
+        sed -i "s/^#$TRIMMED .*/$TRIMMED $VALUE/" /etc/clamav/clamd.conf || \
+        sed -i "\$ a\\$TRIMMED $VALUE" /etc/clamav/clamd.conf
+done
+
+env | grep "^FRESHCLAM_CONF_" | while IFS="=" read -r KEY VALUE; do
+    TRIMMED="${KEY#FRESHCLAM_CONF_}"
+
+    grep -q "^#$TRIMMED " /etc/clamav/freshclam.conf && \
+        sed -i "s/^#$TRIMMED .*/$TRIMMED $VALUE/" /etc/clamav/freshclam.conf || \
+        sed -i "\$ a\\$TRIMMED $VALUE" /etc/clamav/freshclam.conf
+done
+
 # run command if it is not starting with a "-" and is an executable in PATH
 if [ "${#}" -gt 0 ] && \
    [ "${1#-}" = "${1}" ] && \
