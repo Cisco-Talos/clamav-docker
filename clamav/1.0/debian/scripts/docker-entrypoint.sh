@@ -55,7 +55,14 @@ else
 	# Ensure we have some virus data, otherwise clamd refuses to start
 	if [ ! -f "/var/lib/clamav/main.cvd" ]; then
 		echo "Updating initial database"
-		freshclam --foreground --stdout
+		
+		# Set "TestDatabases no" and remove "NotifyClamd" for initial download
+		sed -e 's|^\(TestDatabases \)|\#\1|' \
+			-e '$a TestDatabases no' \
+			-e 's|^\(NotifyClamd \)|\#\1|' \
+			/etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
+		freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
+		rm /tmp/freshclam_initial.conf
 	fi
 
 	if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
