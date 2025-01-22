@@ -111,7 +111,8 @@ RUN apk add --no-cache \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
-    chown -R clamav:clamav /var/lib/clamav
+    chown -R clamav:clamav /var/lib/clamav && \
+    chown -R clamav:clamav /run
 
 COPY --from=builder "/clamav" "/"
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
