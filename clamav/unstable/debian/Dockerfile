@@ -91,7 +91,7 @@ RUN apt update && apt install -y \
         "/clamav/etc/clamav/clamav-milter.conf.sample" > "/clamav/etc/clamav/clamav-milter.conf" || \
     exit 1 \
     && \
-    ctest -V
+    ctest -V --timeout 3000
 
 FROM index.docker.io/library/debian:12-slim
 
