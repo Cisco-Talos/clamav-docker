@@ -116,6 +116,7 @@ RUN apt-get update && apt-get install -y \
         tzdata \
         netcat-openbsd \
     && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm -rf /var/cache/apt/archives && \
     groupadd -g 1000 "clamav" && \
     useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 1000 -c "Clam Antivirus" clamav && \
