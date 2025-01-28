@@ -75,12 +75,40 @@ node('macos-newer') {
 
                 // Build 'unstable' and 'unstable_base' images.
                 sh """
-                docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                    --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                    --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                    --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                    --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
+                    docker buildx build --no-cache --platform linux/amd64 \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-amd64 \
+                        --rm --push .
+
+                    docker buildx build --no-cache --platform linux/arm64 \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-arm64 \
+                        --rm --push .
+
+                    docker buildx build --no-cache --platform linux/ppc64le \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-ppc64le \
+                        --rm --push .
+
+                    docker buildx imagetools create -t ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-amd64" \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-arm64" \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-ppc64le"
                 """
 
                 // Give it some time to add the new unstable_base image.

@@ -88,38 +88,58 @@ node('macos-newer') {
                 //
 
                 // Build X.Y.Z-R_base image.
+                sh """
+                    docker buildx build --no-cache --platform linux/amd64 \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-amd64 \
+                        --rm --push .
+
+                    docker buildx build --no-cache --platform linux/arm64 \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-arm64 \
+                        --rm --push .
+
+                    docker buildx build --no-cache --platform linux/ppc64le \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-ppc64le \
+                        --rm --push .
+
+                    docker buildx imagetools create -t ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-amd64" \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-arm64" \
+                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-ppc64le"
+                """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                        docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                            --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                            --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                            --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                            --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                            --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                            --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
-                            --push .
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
                     """
                 }
                 else {
                     sh """
-                        docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
-                            --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                            --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                            --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                            --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                            --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                            --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
-                            --push .
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
                     """
                 }
 
