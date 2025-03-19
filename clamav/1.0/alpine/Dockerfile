@@ -30,7 +30,6 @@ RUN apk update && apk upgrade \
         libmilter-dev \
         libxml2-dev \
         ncurses-dev \
-        ncurses-dev \
         openssl-dev \
         pcre2-dev \
         zlib-dev \
