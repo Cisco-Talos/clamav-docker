@@ -1,0 +1,173 @@
+properties([
+    parameters([
+        string(name: 'DOCKER_REGISTRY', defaultValue: 'registry.hub.docker.com',                    description: 'The Docker registry to use'),
+        string(name: 'REGISTRY_CREDS',  defaultValue: 'dockerhub',                                  description: 'The Jenkins credentials ID for the given registry'),
+        string(name: 'WEBEX_SPACE_ID',  defaultValue: 'b204c1a0-6862-11e8-9dbc-93ef3cfef186',       description: 'ID of Webex space to push pass/fail notifications'),
+        string(name: 'NAMESPACE',       defaultValue: 'clamav',                                     description: 'The docker namespace to use'),
+        string(name: 'IMAGE_NAME',      defaultValue: 'clamav',                                     description: 'The docker image name to use'),
+        string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
+        string(name: 'BRANCH',          defaultValue: 'rel/1.5',                                    description: 'The repository branch for this build'),
+        string(name: 'FULL_VERSION',    defaultValue: '1.5.0',                                      description: 'Full version in X.Y.Z format'),
+        string(name: 'FEATURE_VERSION', defaultValue: '1.5',                                        description: 'Feature version in X.Y format'),
+        booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
+    ]),
+    disableConcurrentBuilds(),
+    buildDiscarder(logRotator(
+        artifactDaysToKeepStr: '10',
+        artifactNumToKeepStr: '10',
+        daysToKeepStr: '30',
+        numToKeepStr: '20'))
+])
+
+node('docker') {
+    cleanWs()
+
+    try {
+        // Checkout the ClamAV source code
+        checkout([
+            $class: 'GitSCM', branches: [[name: "${params.BRANCH}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [
+                [$class: 'RelativeTargetDirectory', relativeTargetDir: '.'],
+                [$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true]
+            ],
+            submoduleCfg: [], userRemoteConfigs: [[url: "${params.REPOSITORY}"]]
+        ])
+
+        // Remove the Dockerfile and scripts from the clamav repo, if any.
+        sh """
+        rm -rf ./Dockerfile ./dockerfiles
+        """
+
+        // Checkout the current repo
+        dir(path: 'clamav-docker') {
+            checkout scm
+        }
+
+        // Use the Dockerfile and scripts from this repo.
+        sh """
+        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/alpine/scripts .
+        """
+
+        stage('Build Image') {
+            withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.REGISTRY_CREDS}", engineVersion: 1, secretValues:
+                        [[envVar: 'DOCKER_USER', vaultKey: 'username'],[envVar: 'DOCKER_PASSWD', vaultKey: 'password']]]]]) {
+                // Make sure we have the latest base image.
+                sh """
+                docker pull alpine:latest
+                """
+
+                // Login to docker hub
+                sh """
+                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
+                    docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                """
+
+                //
+                // Build the following images:
+                //  - X.Y.Z-R,  X.Y.Z-R_base
+                //  - X.Y.Z,    X.Y.Z_base
+                //  - X.Y,      X.Y_base
+                //
+                // And maybe also:
+                //  - latest,   latest_base
+                //  - stable,   stable_base
+                //
+
+                // Build X.Y.Z-R_base image.
+
+                if (params.IS_LATEST) {
+                    // Create & Publish 'stable_base' and 'latest_base' tags.
+                    sh """
+                    docker buildx build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                                 --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                                 --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                                 --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
+                                 --no-cache --push .
+                    """
+                }
+                else {
+                    sh """
+                    docker buildx build --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                                 --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                                 --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                                 --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                                 --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                                 --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                                 --no-cache --push .
+                    """
+                }
+
+                // The update_db_image.sh script will query for tags during the update process.
+                // So give the registry a little time to add the X.Y.Z-R_base image.
+                sh """
+                sleep 20
+                """
+
+                // Pull the X.Y.Z-R_base image, update the DB, and push it out as X.Y.Z-R (without the _base suffix)
+                sh """
+                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
+                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
+                    ./scripts/update_db_image.sh -t ${params.FULL_VERSION}-${BUILD_NUMBER}_base -n ${params.NAMESPACE}
+                """
+
+                // Login to docker hub again, because the update_db_image.sh script removed our creds in its cleanup stage
+                sh """
+                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
+                    docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                """
+
+                // Publish X.Y.Z tag (without the _base suffix)
+
+                if (params.IS_LATEST) {
+                    // Create & Publish 'stable' and 'latest' tags.
+                    sh """
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                    """
+                }
+                else {
+                    sh """
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+                    """
+                }
+
+                // log-out (again)
+                sh """
+                docker logout "${params.DOCKER_REGISTRY}"
+                """
+            }
+        }
+
+    } catch(err) {
+        // log-out, if required
+        sh """
+        docker logout "${params.DOCKER_REGISTRY}" || true
+        """
+
+        currentBuild.result = "FAILED"
+        sparkSend(
+            message: "Docker build of ${params.FULL_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [FAILED](${BUILD_URL})",
+            spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "${params.WEBEX_SPACE_ID}"]], credentialsId: 'clambuilder', messageType: 'markdown')
+        throw err
+    }
+
+    sparkSend(
+        message: "Docker build of ${params.FULL_VERSION} from ${params.REPOSITORY} branch ${params.BRANCH} for ${params.NAMESPACE}/${params.IMAGE_NAME} [PASSED](${BUILD_URL})",
+        spaceList: [[spaceName: "ClamAV Jenkins", spaceId: "${params.WEBEX_SPACE_ID}"]], credentialsId: 'clambuilder', messageType: 'markdown')
+}
