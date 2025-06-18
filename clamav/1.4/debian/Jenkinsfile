@@ -7,7 +7,7 @@ properties([
         string(name: 'IMAGE_NAME',      defaultValue: 'clamav-debian',                              description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
         string(name: 'BRANCH',          defaultValue: 'rel/1.4',                                    description: 'The repository branch for this build'),
-        string(name: 'FULL_VERSION',    defaultValue: '1.4.2',                                      description: 'Full version in X.Y.Z format'),
+        string(name: 'FULL_VERSION',    defaultValue: '1.4.3',                                      description: 'Full version in X.Y.Z format'),
         string(name: 'FEATURE_VERSION', defaultValue: '1.4',                                        description: 'Feature version in X.Y format'),
         booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
