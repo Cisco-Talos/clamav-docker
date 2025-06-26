@@ -65,7 +65,7 @@ sed -e 's|^\(TestDatabases \)|#\1|' \
     -e '$a TestDatabases no' \
     -e 's|^\(NotifyClamd \)|#\1|' \
     /etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
-freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
+freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf | sed "s/^/[initial-freshclam] /"
 rm /tmp/freshclam_initial.conf
 
 # Start clamd (optional, enabled by default)
@@ -73,7 +73,7 @@ if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
     echo "[${SCRIPT_FILE}] Starting clamd"
     [ -S /tmp/clamd.sock ] && unlink /tmp/clamd.sock
 
-    clamd --foreground &
+    clamd --foreground > >(sed "s/^/[clamd] /") 2>&1 &
     clamd_pid=$!
     child_pids="${child_pids} ${clamd_pid}"
 
@@ -101,14 +101,14 @@ if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
         --daemon \
         --foreground \
         --stdout \
-        --user="clamav" &
+        --user="clamav" > >(sed "s/^/[freshclam-daemon] /") 2>&1 &
     child_pids="${child_pids} $!"
 fi
 
 # Start milter (optional, disabled by default)
 if [ "${CLAMAV_NO_MILTERD:-true}" != "true" ]; then
     echo "[${SCRIPT_FILE}] Starting clamav-milterd"
-    clamav-milter &
+    clamav-milter --foreground > >(sed "s/^/[clamav-milter] /") 2>&1 &
     child_pids="${child_pids} $!"
 fi
 
