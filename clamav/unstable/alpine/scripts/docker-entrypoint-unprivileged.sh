@@ -4,76 +4,125 @@
 # Copyright (C) 2021 Olliver Schinagl <oliver@schinagl.nl>
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
 #
-# A beginning user should be able to docker run image bash (or sh) without
+# A beginning user should be able to `docker run IMAGE bash` (or sh) without
 # needing to learn about --entrypoint
 # https://github.com/docker-library/official-images#consistency
 
 set -eu
 
-# run command if it is not starting with a "-" and is an executable in PATH
-if [ "${#}" -gt 0 ] && \
-   [ "${1#-}" = "${1}" ] && \
-   command -v "${1}" > "/dev/null" 2>&1; then
-	# Ensure healthcheck always passes
-	CLAMAV_NO_CLAMD="true" exec "${@}"
-else
-	if [ "${#}" -ge 1 ] && \
-	   [ "${1#-}" != "${1}" ]; then
-		# If an argument starts with "-" pass it to clamd specifically
-		exec clamd "${@}"
-	fi
-	# else default to running clamav's servers
+SCRIPT_FILE="$(basename "$0")"
+CLAMD_STARTUP_TIMEOUT="${CLAMD_STARTUP_TIMEOUT:-1800}"
 
-	# Ensure we have some virus data, otherwise clamd refuses to start
-	if [ ! -f "/var/lib/clamav/main.cvd" ]; then
-		echo "Updating initial database"
-		
-		# Set "TestDatabases no" and remove "NotifyClamd" for initial download
-		sed -e 's|^\(TestDatabases \)|\#\1|' \
-			-e '$a TestDatabases no' \
-			-e 's|^\(NotifyClamd \)|\#\1|' \
-			/etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
-		freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
-		rm /tmp/freshclam_initial.conf
-	fi
+# ---------------------------------------------------------------------------
+# signal handling – make sure all background daemons die cleanly
+# ---------------------------------------------------------------------------
+child_pids=""
 
-	if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
-		echo "Starting Freshclamd"
-		freshclam \
-		          --checks="${FRESHCLAM_CHECKS:-1}" \
-		          --daemon \
-		          --foreground \
-		          --stdout \
-		          --user="clamav" \
-			  &
-	fi
+terminate_children() {
+    if [ -n "${child_pids}" ]; then
+        echo "[${SCRIPT_FILE}] Caught termination signal, stopping children: ${child_pids}"
+        # Send SIGTERM first, then SIGKILL after a grace period if still running
+        echo "[${SCRIPT_FILE}] Sending SIGTERM"
+        kill -TERM ${child_pids} 2>/dev/null || true
+        sleep 5
+        # Check if any children are still running
+        for pid in ${child_pids}; do
+            if kill -0 "${pid}" 2>/dev/null; then
+                echo "[${SCRIPT_FILE}] Child ${pid} is still running, sending SIGKILL"
+                kill -KILL "${pid}" 2>/dev/null || true
+            fi
+        done
+    fi
+    echo "[${SCRIPT_FILE}] All children terminated, exiting."
+    exit 0
+}
+trap terminate_children INT TERM
 
-	if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
-		echo "Starting ClamAV"
-		if [ -S "/tmp/clamd.sock" ]; then
-			unlink "/tmp/clamd.sock"
-		fi
-		clamd --foreground &
-		while [ ! -S "/tmp/clamd.sock" ]; do
-			if [ "${_timeout:=0}" -gt "${CLAMD_STARTUP_TIMEOUT:=1800}" ]; then
-				echo
-				echo "Failed to start clamd"
-				exit 1
-			fi
-			printf "\r%s" "Socket for clamd not found yet, retrying (${_timeout}/${CLAMD_STARTUP_TIMEOUT}) ..."
-			sleep 1
-			_timeout="$((_timeout + 1))"
-		done
-		echo "socket found, clamd started."
-	fi
-
-	if [ "${CLAMAV_NO_MILTERD:-true}" != "true" ]; then
-		echo "Starting clamav milterd"
-		clamav-milter &
-	fi
-
-	# Wait forever (or until canceled)
-	exec tail -f "/dev/null"
+# ---------------------------------------------------------------------------
+# fast-path: run arbitrary executable
+# ---------------------------------------------------------------------------
+if [ "$#" -gt 0 ] && [ "${1#-}" = "${1}" ] && command -v "$1" >/dev/null 2>&1; then
+    # exec replaces the shell (and tini) with the given command, so we exit the script here.
+    # As this will be the new PID 1, it will also receive the signals directly
+    exec "$@"
 fi
 
-exit 0
+# ---------------------------------------------------------------------------
+# alternative path: flags → clamd
+# ---------------------------------------------------------------------------
+if [ "$#" -ge 1 ] && [ "${1#-}" != "${1}" ]; then
+    # same as above, but we treat the arguments (starting with "-") as flags to clamd
+    exec clamd "$@"
+fi
+
+# ---------------------------------------------------------------------------
+# default path: launch daemons
+# ---------------------------------------------------------------------------
+
+# Ensure initial virus database exists, otherwise clamd refuses to start
+if [ ! -f /var/lib/clamav/main.cvd ]; then
+    echo "[${SCRIPT_FILE}] Updating initial database"
+    sed -e 's|^\(TestDatabases \)|#\1|' \
+        -e '$a TestDatabases no' \
+        -e 's|^\(NotifyClamd \)|#\1|' \
+        /etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
+
+    freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
+    rm /tmp/freshclam_initial.conf
+fi
+
+# Start freshclam daemon (optional, enabled by default)
+if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
+    echo "[${SCRIPT_FILE}] Starting freshclamd"
+    freshclam \
+        --checks="${FRESHCLAM_CHECKS:-1}" \
+        --daemon \
+        --foreground \
+        --stdout \
+        --user="clamav" &
+    child_pids="${child_pids} $!"
+fi
+
+# Start clamd (optional, enabled by default)
+if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
+    echo "[${SCRIPT_FILE}] Starting clamd"
+    [ -S /tmp/clamd.sock ] && unlink /tmp/clamd.sock
+
+    clamd --foreground &
+    clamd_pid=$!
+    child_pids="${child_pids} ${clamd_pid}"
+
+    # Wait for socket
+    elapsed=0
+    until [ -S /tmp/clamd.sock ]; do
+        if [ "${elapsed}" -ge "${CLAMD_STARTUP_TIMEOUT}" ]; then
+            echo >&2 "[${SCRIPT_FILE}] Failed to start clamd (socket not found)"
+            kill -TERM "${clamd_pid}" 2>/dev/null || true
+            exit 1
+        fi
+        [ $((elapsed % 5)) -eq 0 ] && \
+            printf "[%s] Waiting for clamd socket… (%s/%s)s …\n" "${SCRIPT_FILE}" "${elapsed}" "${CLAMD_STARTUP_TIMEOUT}"
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    echo "[${SCRIPT_FILE}] Socket found after ${elapsed}s, clamd started."
+fi
+
+# Start milter (optional, disabled by default)
+if [ "${CLAMAV_NO_MILTERD:-true}" != "true" ]; then
+    echo "[${SCRIPT_FILE}] Starting clamav-milterd"
+    clamav-milter &
+    child_pids="${child_pids} $!"
+fi
+
+# ---------------------------------------------------------------------------
+# keep container alive while daemons run
+# ---------------------------------------------------------------------------
+if [ -n "${child_pids// }" ]; then
+    # Wait for *any* child to exit; propagate exit status
+    wait -n ${child_pids}
+    exit $?
+else
+    # If nothing started, just exit cleanly
+    exit 0
+fi
