@@ -60,28 +60,13 @@ fi
 # ---------------------------------------------------------------------------
 
 # Ensure initial virus database exists, otherwise clamd refuses to start
-if [ ! -f /var/lib/clamav/main.cvd ]; then
-    echo "[${SCRIPT_FILE}] Updating initial database"
-    sed -e 's|^\(TestDatabases \)|#\1|' \
-        -e '$a TestDatabases no' \
-        -e 's|^\(NotifyClamd \)|#\1|' \
-        /etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
-
-    freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
-    rm /tmp/freshclam_initial.conf
-fi
-
-# Start freshclam daemon (optional, enabled by default)
-if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
-    echo "[${SCRIPT_FILE}] Starting freshclamd"
-    freshclam \
-        --checks="${FRESHCLAM_CHECKS:-1}" \
-        --daemon \
-        --foreground \
-        --stdout \
-        --user="clamav" &
-    child_pids="${child_pids} $!"
-fi
+echo "[${SCRIPT_FILE}] Updating initial database"
+sed -e 's|^\(TestDatabases \)|#\1|' \
+    -e '$a TestDatabases no' \
+    -e 's|^\(NotifyClamd \)|#\1|' \
+    /etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
+freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
+rm /tmp/freshclam_initial.conf
 
 # Start clamd (optional, enabled by default)
 if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
@@ -101,11 +86,23 @@ if [ "${CLAMAV_NO_CLAMD:-false}" != "true" ]; then
             exit 1
         fi
         [ $((elapsed % 5)) -eq 0 ] && \
-            printf "[%s] Waiting for clamd socket… (%s/%s)s …\n" "${SCRIPT_FILE}" "${elapsed}" "${CLAMD_STARTUP_TIMEOUT}"
+            printf "[%s] Waiting for clamd socket... (%s/%s)s\n" "${SCRIPT_FILE}" "${elapsed}" "${CLAMD_STARTUP_TIMEOUT}"
         sleep 1
         elapsed=$((elapsed + 1))
     done
     echo "[${SCRIPT_FILE}] Socket found after ${elapsed}s, clamd started."
+fi
+
+# Start freshclam daemon (optional, enabled by default)
+if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
+    echo "[${SCRIPT_FILE}] Starting freshclamd"
+    freshclam \
+        --checks="${FRESHCLAM_CHECKS:-1}" \
+        --daemon \
+        --foreground \
+        --stdout \
+        --user="clamav" &
+    child_pids="${child_pids} $!"
 fi
 
 # Start milter (optional, disabled by default)
