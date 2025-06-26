@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/tini /bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Copyright (C) 2021 Olliver Schinagl <oliver@schinagl.nl>
