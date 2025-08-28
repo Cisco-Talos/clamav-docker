@@ -6,10 +6,10 @@ properties([
         string(name: 'NAMESPACE',       defaultValue: 'clamav',                                     description: 'The docker namespace to use'),
         string(name: 'IMAGE_NAME',      defaultValue: 'clamav-debian',                              description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
-        string(name: 'BRANCH',          defaultValue: 'rel/1.4',                                    description: 'The repository branch for this build'),
-        string(name: 'FULL_VERSION',    defaultValue: '1.4.3',                                      description: 'Full version in X.Y.Z format'),
-        string(name: 'FEATURE_VERSION', defaultValue: '1.4',                                        description: 'Feature version in X.Y format'),
-        booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
+        string(name: 'BRANCH',          defaultValue: 'rel/1.5',                                    description: 'The repository branch for this build'),
+        string(name: 'FULL_VERSION',    defaultValue: '1.5.0',                                      description: 'Full version in X.Y.Z format'),
+        string(name: 'FEATURE_VERSION', defaultValue: '1.5',                                        description: 'Feature version in X.Y format'),
+        booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -19,7 +19,7 @@ properties([
         numToKeepStr: '20'))
 ])
 
-node('docker-buildx') {
+node('macos-newer') {
     cleanWs()
 
     try {
@@ -50,6 +50,14 @@ node('docker-buildx') {
         """
 
         stage('Build Image') {
+            withVault([vaultSecrets: [[ path: "clamavbuild-kv/clamav_jenkins_svc_mac_minis", engineVersion: 1, secretValues:
+                        [[envVar: 'USER', vaultKey: 'username'],[envVar: 'PASSWORD', vaultKey: 'password']]]]]) {
+                // Enable keychain to access keystore, else docker will store credentials in plaintext
+                sh '''
+                security -v unlock-keychain -p "$PASSWORD" ~/Library/Keychains/login.keychain-db
+                security set-keychain-settings -t 36000 -l ~/Library/Keychains/login.keychain-db
+                '''
+            }
             withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.REGISTRY_CREDS}", engineVersion: 1, secretValues:
                         [[envVar: 'DOCKER_USER', vaultKey: 'username'],[envVar: 'DOCKER_PASSWD', vaultKey: 'password']]]]]) {
                 // Set docker buildx context
