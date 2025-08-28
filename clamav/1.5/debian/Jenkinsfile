@@ -6,10 +6,10 @@ properties([
         string(name: 'NAMESPACE',       defaultValue: 'clamav',                                     description: 'The docker namespace to use'),
         string(name: 'IMAGE_NAME',      defaultValue: 'clamav-debian',                              description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: 'https://github.com/Cisco-Talos/clamav.git',  description: 'The repository from which to build'),
-        string(name: 'BRANCH',          defaultValue: 'rel/1.4',                                    description: 'The repository branch for this build'),
-        string(name: 'FULL_VERSION',    defaultValue: '1.4.3',                                      description: 'Full version in X.Y.Z format'),
-        string(name: 'FEATURE_VERSION', defaultValue: '1.4',                                        description: 'Feature version in X.Y format'),
-        booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
+        string(name: 'BRANCH',          defaultValue: 'rel/1.5',                                    description: 'The repository branch for this build'),
+        string(name: 'FULL_VERSION',    defaultValue: '1.5.0',                                      description: 'Full version in X.Y.Z format'),
+        string(name: 'FEATURE_VERSION', defaultValue: '1.5',                                        description: 'Feature version in X.Y format'),
+        booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -59,7 +59,7 @@ node('docker-buildx') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:12-slim
+                docker pull debian:13-slim
                 """
 
                 // Login to docker hub
