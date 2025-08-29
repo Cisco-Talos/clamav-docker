@@ -55,7 +55,7 @@ node('docker-buildx') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:12-slim
+                docker pull debian:13-slim
                 """
 
                 // Login to docker hub
