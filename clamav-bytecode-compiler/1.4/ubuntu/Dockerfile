@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
-FROM registry.hub.docker.com/library/ubuntu:23.04 AS builder
+FROM registry.hub.docker.com/library/ubuntu:24.04 AS builder
 
 LABEL Maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
 
@@ -37,7 +37,7 @@ RUN apt-get update -y && \
     make DESTDIR="/clambc" install && \
     ctest -V
 
-FROM registry.hub.docker.com/library/ubuntu:23.04
+FROM registry.hub.docker.com/library/ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CC=clang-16
