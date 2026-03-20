@@ -13,7 +13,7 @@ COPY . /src/
 # hadolint ignore=DL3008  We want the latest stable versions
 RUN apk update && apk upgrade \
     && \
-    apk add --no-cache \
+    apk add \
         bsd-compat-headers \
         cmake \
         file \
@@ -92,7 +92,9 @@ EXPOSE 7357
 
 ENV TZ=Etc/UTC
 
-RUN apk add --no-cache \
+RUN apk update && apk upgrade \
+    && \
+    apk add \
         fts \
         libstdc++ \
         tini \
@@ -107,6 +109,7 @@ RUN apk add --no-cache \
         pcre2 \
         zlib \
     && \
+    rm -rf /var/cache/apk/* && \
     addgroup -S "clamav" && \
     adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
