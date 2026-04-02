@@ -6,7 +6,7 @@ properties([
         string(name: 'NAMESPACE',       defaultValue: "clamav",                                     description: 'The docker namespace to use'),
         string(name: 'IMAGE_NAME',      defaultValue: "clamav-debian",                              description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: "https://github.com/Cisco-Talos/clamav.git",  description: 'The repository from which to build'),
-        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/q5c1p4x0/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
+        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
         string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds')
     ]),
     disableConcurrentBuilds(),
@@ -74,7 +74,7 @@ node('docker-buildx') {
 
                     sh """
                     aws ecr-public get-login-password --region us-east-1 | \
-                    docker login --username AWS --password-stdin "${params.ECR_PUBLIC_REPO}"
+                    docker login --username AWS --password-stdin public.ecr.aws
                     """
                 }
 

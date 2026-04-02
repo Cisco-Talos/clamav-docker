@@ -10,7 +10,7 @@ properties([
         string(name: 'FULL_VERSION',    defaultValue: '1.5.2',                                      description: 'Full version in X.Y.Z format'),
         string(name: 'FEATURE_VERSION', defaultValue: '1.5',                                        description: 'Feature version in X.Y format'),
         booleanParam(name: 'IS_LATEST', defaultValue: true,                                         description: 'If "true", will also publish to :latest, and :stable tags.'),
-        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/q5c1p4x0/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
+        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
         string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds')
 
     ]),
@@ -79,7 +79,7 @@ node('docker-buildx') {
 
                     sh """
                     aws ecr-public get-login-password --region us-east-1 | \
-                    docker login --username AWS --password-stdin "${params.ECR_PUBLIC_REPO}"
+                    docker login --username AWS --password-stdin public.ecr.aws
                     """
                 }
                 //
