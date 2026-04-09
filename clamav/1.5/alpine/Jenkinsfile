@@ -106,9 +106,9 @@ node('docker') {
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
-                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
-                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
                         --rm --push .
 
@@ -122,9 +122,9 @@ node('docker') {
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable_base \
                             --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE} \
-                            --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE} \
-                            --tag ${params.ECR_PUBLIC_REPO}:latest_base-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest_base \
                             --tag ${params.ECR_PUBLIC_REPO}:latest_base-${params.BASE_IMAGE}
                     """
                 }
@@ -148,9 +148,9 @@ node('docker') {
                         --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
-                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
-                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
                         -f Dockerfile.add-db .
                 """
@@ -169,9 +169,9 @@ node('docker') {
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable \
                             --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE} \
-                            --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE} \
-                            --tag ${params.ECR_PUBLIC_REPO}:latest-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest \
                             --tag ${params.ECR_PUBLIC_REPO}:latest-${params.BASE_IMAGE}
                     """
                 }
