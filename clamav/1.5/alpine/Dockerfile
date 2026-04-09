@@ -2,9 +2,10 @@
 #
 # Copyright (C) 2020 Olliver Schinagl <oliver@schinagl.nl>
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
+ARG BASE_IMAGE=alpine:latest
 
 # hadolint ignore=DL3007  latest is the latest stable for alpine
-FROM index.docker.io/library/alpine:latest AS builder
+FROM index.docker.io/library/${BASE_IMAGE} AS builder
 
 WORKDIR /src
 
@@ -83,7 +84,7 @@ RUN apk update && apk upgrade \
     && \
     ctest -V
 
-FROM index.docker.io/library/alpine:latest
+FROM index.docker.io/library/${BASE_IMAGE}
 
 LABEL maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
 

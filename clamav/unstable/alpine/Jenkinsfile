@@ -6,6 +6,10 @@ properties([
         string(name: 'NAMESPACE',       defaultValue: "clamav",                                     description: 'The docker namespace to use'),
         string(name: 'IMAGE_NAME',      defaultValue: "clamav",                                     description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: "https://github.com/Cisco-Talos/clamav.git",  description: 'The repository from which to build'),
+        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
+        string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds'),
+        string(name: 'BASE_IMAGE', defaultValue: 'alpine', description: 'Alpine base image'),
+        string(name: 'BASE_IMAGE_VERSION', defaultValue: 'latest', description: 'Version for Alpine base image')
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -17,6 +21,8 @@ properties([
 
 node('docker') {
     cleanWs()
+
+    def FULL_BASE_IMAGE = "${params.BASE_IMAGE}:${params.BASE_IMAGE_VERSION}"
 
     try {
         // Checkout the ClamAV source code
@@ -42,7 +48,7 @@ node('docker') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/unstable/alpine/Dockerfile clamav-docker/clamav/unstable/alpine/scripts .
+        cp -r clamav-docker/clamav/unstable/alpine/Dockerfile* clamav-docker/clamav/unstable/alpine/scripts .
         """
 
         stage('Build Image') {
@@ -50,7 +56,7 @@ node('docker') {
                         [[envVar: 'DOCKER_USER', vaultKey: 'username'],[envVar: 'DOCKER_PASSWD', vaultKey: 'password']]]]]) {
                 // Make sure we have the latest base image.
                 sh """
-                docker pull alpine:latest
+                docker pull ${FULL_BASE_IMAGE}
                 """
 
                 // Login to docker hub
@@ -59,33 +65,57 @@ node('docker') {
                     docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
                 """
 
-                //
-                // Build 'unstable' and 'unstable_base' images.
-                //
+                // ClamAV AWS ECR login
+                withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.AWS_CREDENTIALS_ID}", engineVersion: 1, secretValues: [
+                    [envVar: 'AWS_ACCESS_KEY_ID', vaultKey: 'aws_access_key_id'],
+                    [envVar: 'AWS_SECRET_ACCESS_KEY', vaultKey: 'aws_secret_access_key']
+                ]]]]) {
 
+                    sh """
+                    aws ecr-public get-login-password --region us-east-1 | \
+                    docker login --username AWS --password-stdin public.ecr.aws
+                    """
+                }
+
+                // Build 'unstable' and 'unstable_base' images.
                 sh """
-                docker buildx build --no-cache \
-                    --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                    --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                    --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                    --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                    --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base --push .
+                    docker buildx build --no-cache \
+                        --build-arg BASE_IMAGE=${FULL_BASE_IMAGE} \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
+                        --tag ${params.ECR_PUBLIC_REPO}:unstable_base \
+                        --rm --push .
                 """
 
-                // Give it some time to add the new unstable_base image.
-                // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
+                // Sleep so that images are pushed and indexed properly
                 sh """
                 sleep 20
                 """
 
                 // Generate and push an image without the "_base" suffix that contains the databases.
                 sh """
-                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
-                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                    ./scripts/update_db_image.sh -t unstable_base -n ${params.NAMESPACE}
+                    docker buildx build --no-cache \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --push \
+                        --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable \
+                        --tag ${params.ECR_PUBLIC_REPO}:unstable \
+                        -f Dockerfile.add-db .
                 """
-
-                // update_db_image.sh logged off from the registry for us. No need to do it manually.
             }
         }
 
