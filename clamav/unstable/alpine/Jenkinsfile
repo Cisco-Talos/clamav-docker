@@ -1,6 +1,6 @@
 properties([
     parameters([
-        string(name: 'DOCKER_REGISTRY', defaultValue: "registry.hub.docker.com",                    description: 'The Docker registry to use'),
+        string(name: 'DOCKER_REGISTRY', defaultValue: "docker.io",                                  description: 'The Docker registry to use'),
         string(name: 'REGISTRY_CREDS',  defaultValue: "dockerhub",                                  description: 'The Jenkins credentials ID for the given registry'),
         string(name: 'WEBEX_SPACE_ID',  defaultValue: "b204c1a0-6862-11e8-9dbc-93ef3cfef186",       description: 'ID of Webex space to push pass/fail notifications'),
         string(name: 'NAMESPACE',       defaultValue: "clamav",                                     description: 'The docker namespace to use'),
