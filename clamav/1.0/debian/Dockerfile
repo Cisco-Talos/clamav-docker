@@ -2,8 +2,9 @@
 #
 # Copyright (C) 2020 Olliver Schinagl <oliver@schinagl.nl>
 # Copyright (C) 2021-2023 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
+ARG BASE_IMAGE=debian:12-slim
 
-FROM index.docker.io/library/debian:12-slim AS builder
+FROM index.docker.io/library/${BASE_IMAGE} AS builder
 
 WORKDIR /src
 
@@ -93,7 +94,7 @@ RUN apt update && apt install -y \
     && \
     ctest -V --timeout 3000
 
-FROM index.docker.io/library/debian:12-slim
+FROM index.docker.io/library/${BASE_IMAGE}
 
 LABEL maintainer="ClamAV bugs <clamav-bugs@external.cisco.com>"
 

@@ -1,6 +1,6 @@
 properties([
     parameters([
-        string(name: 'DOCKER_REGISTRY', defaultValue: 'registry.hub.docker.com',                    description: 'The Docker registry to use'),
+        string(name: 'DOCKER_REGISTRY', defaultValue: 'docker.io',                                  description: 'The Docker registry to use'),
         string(name: 'REGISTRY_CREDS',  defaultValue: 'dockerhub',                                  description: 'The Jenkins credentials ID for the given registry'),
         string(name: 'WEBEX_SPACE_ID',  defaultValue: 'b204c1a0-6862-11e8-9dbc-93ef3cfef186',       description: 'ID of Webex space to push pass/fail notifications'),
         string(name: 'NAMESPACE',       defaultValue: 'clamav',                                     description: 'The docker namespace to use'),
@@ -10,6 +10,12 @@ properties([
         string(name: 'FULL_VERSION',    defaultValue: '1.4.4',                                      description: 'Full version in X.Y.Z format'),
         string(name: 'FEATURE_VERSION', defaultValue: '1.4',                                        description: 'Feature version in X.Y format'),
         booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
+        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
+        string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds'),
+        string(name: 'BASE_IMAGE', defaultValue: 'debian', description: 'Codename for Debian base image'),
+        string(name: 'BASE_IMAGE_VERSION', defaultValue: '13', description: 'Codename for Debian base image'),
+        string(name: 'BASE_IMAGE_VARIANT', defaultValue: 'slim', description: 'Codename for Debian base image')
+
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -21,6 +27,8 @@ properties([
 
 node('docker-buildx') {
     cleanWs()
+
+    def FULL_BASE_IMAGE = "${params.BASE_IMAGE}:${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}"
 
     try {
         // Checkout the ClamAV source code
@@ -46,7 +54,7 @@ node('docker-buildx') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/debian/Dockerfile clamav-docker/clamav/${params.FEATURE_VERSION}/debian/scripts .
+        cp -r clamav-docker/clamav/${params.FEATURE_VERSION}/debian/Dockerfile* clamav-docker/clamav/${params.FEATURE_VERSION}/debian/scripts .
         """
 
         stage('Build Image') {
@@ -59,7 +67,7 @@ node('docker-buildx') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:12-slim
+                docker pull ${FULL_BASE_IMAGE}
                 """
 
                 // Login to docker hub
@@ -68,6 +76,17 @@ node('docker-buildx') {
                     docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
                 """
 
+                // ClamAV AWS ECR login
+                withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.AWS_CREDENTIALS_ID}", engineVersion: 1, secretValues: [
+                    [envVar: 'AWS_ACCESS_KEY_ID', vaultKey: 'aws_access_key_id'],
+                    [envVar: 'AWS_SECRET_ACCESS_KEY', vaultKey: 'aws_secret_access_key']
+                ]]]]) {
+
+                    sh """
+                    aws ecr-public get-login-password --region us-east-1 | \
+                    docker login --username AWS --password-stdin public.ecr.aws
+                    """
+                }
                 //
                 // Build the following images:
                 //  - X.Y.Z-R,  X.Y.Z-R_base
@@ -80,97 +99,87 @@ node('docker-buildx') {
                 //
 
                 // Build X.Y.Z-R_base image.
+
                 sh """
-                    docker buildx build --no-cache --platform linux/amd64 \
+                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                        --build-arg BASE_IMAGE=${FULL_BASE_IMAGE} \
                         --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
                         --annotation org.opencontainers.image.url=${params.REPOSITORY} \
                         --annotation org.opencontainers.image.source=${params.REPOSITORY} \
                         --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
                         --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-amd64 \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --rm --push .
 
-                    docker buildx build --no-cache --platform linux/arm64 \
-                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-arm64 \
-                        --rm --push .
-
-                    docker buildx build --no-cache --platform linux/ppc64le \
-                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-ppc64le \
-                        --rm --push .
-
-                    docker buildx imagetools create -t ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-amd64" \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-arm64" \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base-ppc64le"
                 """
 
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable_base' and 'latest_base' tags.
                     sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
-                    """
-                }
-                else {
-                    sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER}_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base
+
+                        docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest_base-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
                     """
                 }
 
-                // The update_db_image.sh script will query for tags during the update process.
-                // So give the registry a little time to add the X.Y.Z-R_base image.
+                // Sleep so that images are pushed and indexed properly
                 sh """
                 sleep 20
                 """
 
-                // Pull the X.Y.Z-R_base image, update the DB, and push it out as X.Y.Z-R (without the _base suffix)
                 sh """
-                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
-                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                    ./scripts/update_db_image.sh -t ${params.FULL_VERSION}-${BUILD_NUMBER}_base -n ${params.NAMESPACE}
-                """
-
-                // Login to docker hub again, because the update_db_image.sh script removed our creds in its cleanup stage
-                sh """
-                echo "\${_passwd:-\${DOCKER_PASSWD}}" | \
-                    docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
+                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --push \
+                        --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        -f Dockerfile.add-db .
                 """
 
                 // Publish X.Y.Z tag (without the _base suffix)
 
+                sh """
+                sleep 60
+                """
+
                 if (params.IS_LATEST) {
                     // Create & Publish 'stable' and 'latest' tags.
                     sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
-                    """
-                }
-                else {
-                    sh """
-                        docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}-${BUILD_NUMBER} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}
+
+                        docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest-${params.BASE_IMAGE} \
+                            --tag ${params.ECR_PUBLIC_REPO}:latest-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
                     """
                 }
 

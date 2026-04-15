@@ -1,11 +1,17 @@
 properties([
     parameters([
-        string(name: 'DOCKER_REGISTRY', defaultValue: "registry.hub.docker.com",                    description: 'The Docker registry to use'),
+        string(name: 'DOCKER_REGISTRY', defaultValue: "docker.io",                                  description: 'The Docker registry to use'),
         string(name: 'REGISTRY_CREDS',  defaultValue: "dockerhub",                                  description: 'The Jenkins credentials ID for the given registry'),
         string(name: 'WEBEX_SPACE_ID',  defaultValue: "b204c1a0-6862-11e8-9dbc-93ef3cfef186",       description: 'ID of Webex space to push pass/fail notifications'),
         string(name: 'NAMESPACE',       defaultValue: "clamav",                                     description: 'The docker namespace to use'),
         string(name: 'IMAGE_NAME',      defaultValue: "clamav-debian",                              description: 'The docker image name to use'),
         string(name: 'REPOSITORY',      defaultValue: "https://github.com/Cisco-Talos/clamav.git",  description: 'The repository from which to build'),
+        string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
+        string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds'),
+        string(name: 'BASE_IMAGE', defaultValue: 'debian', description: 'Debian base image'),
+        string(name: 'BASE_IMAGE_VERSION', defaultValue: '13', description: 'Version for Debian base image'),
+        string(name: 'BASE_IMAGE_VARIANT', defaultValue: 'slim', description: 'Variant for Debian base image')
+
     ]),
     disableConcurrentBuilds(),
     buildDiscarder(logRotator(
@@ -17,6 +23,8 @@ properties([
 
 node('docker-buildx') {
     cleanWs()
+
+    def FULL_BASE_IMAGE = "${params.BASE_IMAGE}:${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}"
 
     try {
         // Checkout the ClamAV source code
@@ -42,7 +50,7 @@ node('docker-buildx') {
 
         // Use the Dockerfile and scripts from this repo.
         sh """
-        cp -r clamav-docker/clamav/unstable/debian/Dockerfile clamav-docker/clamav/unstable/debian/scripts .
+        cp -r clamav-docker/clamav/unstable/debian/Dockerfile* clamav-docker/clamav/unstable/debian/scripts .
         """
 
         stage('Build Image') {
@@ -55,7 +63,7 @@ node('docker-buildx') {
 
                 // Make sure we have the latest base image.
                 sh """
-                docker pull debian:13-slim
+                docker pull ${FULL_BASE_IMAGE}
                 """
 
                 // Login to docker hub
@@ -64,59 +72,57 @@ node('docker-buildx') {
                     docker login --password-stdin --username "${DOCKER_USER}" "${params.DOCKER_REGISTRY}"
                 """
 
+                // ClamAV AWS ECR login
+                withVault([vaultSecrets: [[ path: "clamavbuild-kv/${params.AWS_CREDENTIALS_ID}", engineVersion: 1, secretValues: [
+                    [envVar: 'AWS_ACCESS_KEY_ID', vaultKey: 'aws_access_key_id'],
+                    [envVar: 'AWS_SECRET_ACCESS_KEY', vaultKey: 'aws_secret_access_key']
+                ]]]]) {
+
+                    sh """
+                    aws ecr-public get-login-password --region us-east-1 | \
+                    docker login --username AWS --password-stdin public.ecr.aws
+                    """
+                }
 
                 // Build 'unstable' and 'unstable_base' images.
                 sh """
-                    docker buildx build --no-cache --platform linux/amd64 \
+                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                        --build-arg BASE_IMAGE=${FULL_BASE_IMAGE} \
                         --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
                         --annotation org.opencontainers.image.url=${params.REPOSITORY} \
                         --annotation org.opencontainers.image.source=${params.REPOSITORY} \
                         --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
                         --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-amd64 \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
+                        --tag ${params.ECR_PUBLIC_REPO}:unstable_base \
                         --rm --push .
-
-                    docker buildx build --no-cache --platform linux/arm64 \
-                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-arm64 \
-                        --rm --push .
-
-                    docker buildx build --no-cache --platform linux/ppc64le \
-                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
-                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
-                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
-                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
-                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-ppc64le \
-                        --rm --push .
-
-                    docker buildx imagetools create -t ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-amd64" \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-arm64" \
-                        "${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base-ppc64le"
                 """
 
-                // Give it some time to add the new unstable_base image.
-                // In past jobs, it didn't detect the new image until we re-ran this job. I suspect because it needed a little delay after pushing before pulling.
+                // Sleep so that images are pushed and indexed properly
                 sh """
                 sleep 20
                 """
 
                 // Generate and push an image without the "_base" suffix that contains the databases.
                 sh """
-                DOCKER_REGISTRY="${params.DOCKER_REGISTRY}" \
-                CLAMAV_DOCKER_IMAGE="${params.IMAGE_NAME}" \
-                    ./scripts/update_db_image.sh -t unstable_base -n ${params.NAMESPACE}
+                    docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
+                        --sbom=true --provenance mode=max,builder-id=${BUILD_URL} \
+                        --annotation org.opencontainers.image.base.name=${FULL_BASE_IMAGE} \
+                        --annotation org.cisco.clamav.image.build-number=${BUILD_NUMBER} \
+                        --annotation org.opencontainers.image.url=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.source=${params.REPOSITORY} \
+                        --annotation org.opencontainers.image.version=${params.FULL_VERSION} \
+                        --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
+                        --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
+                        --push \
+                        --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable \
+                        --tag ${params.ECR_PUBLIC_REPO}:unstable \
+                        -f Dockerfile.add-db .
                 """
-
-                // update_db_image.sh logged off from the registry for us. No need to do it manually.
             }
         }
 
