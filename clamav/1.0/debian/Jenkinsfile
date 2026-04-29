@@ -99,6 +99,7 @@ node('docker-buildx') {
                 //
 
                 // Build X.Y.Z-R_base image.
+
                 sh """
                     docker buildx build --no-cache --platform linux/amd64,linux/arm64,linux/ppc64le \
                         --build-arg BASE_IMAGE=${FULL_BASE_IMAGE} \
@@ -112,6 +113,10 @@ node('docker-buildx') {
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FULL_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
@@ -125,7 +130,11 @@ node('docker-buildx') {
                     sh """
                         docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:stable_base-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:stable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:latest_base-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:latest_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
                             --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE} \
@@ -154,6 +163,10 @@ node('docker-buildx') {
                         --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FULL_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:${params.FEATURE_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
@@ -172,7 +185,11 @@ node('docker-buildx') {
                     sh """
                         docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:stable-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:stable-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:latest-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.NAMESPACE}:latest-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
                             --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE} \
