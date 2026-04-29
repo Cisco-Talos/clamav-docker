@@ -97,8 +97,8 @@ node('docker-buildx') {
                         --annotation org.opencontainers.image.ref.name=${params.BRANCH} \
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/$${params.NAMESPACE}:unstable_base-${params.BASE_IMAGE} \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/$${params.NAMESPACE}:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable_base-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable_base-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
                         --rm --push .
@@ -123,8 +123,8 @@ node('docker-buildx') {
                         --push \
                         --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/$${params.NAMESPACE}:unstable-${params.BASE_IMAGE} \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/$${params.NAMESPACE}:unstable-${params.BASE_IMAGE}$ \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable-${params.BASE_IMAGE}$ \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         -f Dockerfile.add-db .
