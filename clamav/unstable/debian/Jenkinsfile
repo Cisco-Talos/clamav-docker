@@ -100,7 +100,7 @@ node('docker-buildx') {
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable_base-${params.BASE_IMAGE} \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable_base-${params.BASE_IMAGE} \
-                        --tag ${params.ECR_PUBLIC_REPO}:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
+                        --tag ${params.ECR_PUBLIC_REPO}:unstable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --rm --push .
                 """
 
