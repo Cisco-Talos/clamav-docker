@@ -124,7 +124,6 @@ node('docker-buildx') {
                         --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:unstable \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable-${params.BASE_IMAGE} \
-                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:unstable-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:unstable-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         -f Dockerfile.add-db .
