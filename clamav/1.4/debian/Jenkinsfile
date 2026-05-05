@@ -12,9 +12,9 @@ properties([
         booleanParam(name: 'IS_LATEST', defaultValue: false,                                        description: 'If "true", will also publish to :latest, and :stable tags.'),
         string(name: 'ECR_PUBLIC_REPO', defaultValue: 'public.ecr.aws/cisco/clamav/clamav',      description: 'ClamAV AWS Public ECR repo'),
         string(name: 'AWS_CREDENTIALS_ID', defaultValue: 'pinkhat-clamav-aws-creds', description: 'Vault path for AWS creds'),
-        string(name: 'BASE_IMAGE', defaultValue: 'debian', description: 'Codename for Debian base image'),
-        string(name: 'BASE_IMAGE_VERSION', defaultValue: '13', description: 'Codename for Debian base image'),
-        string(name: 'BASE_IMAGE_VARIANT', defaultValue: 'slim', description: 'Codename for Debian base image')
+        string(name: 'BASE_IMAGE', defaultValue: 'debian', description: 'Debian base image'),
+        string(name: 'BASE_IMAGE_VERSION', defaultValue: '13', description: 'Version for Debian base image'),
+        string(name: 'BASE_IMAGE_VARIANT', defaultValue: 'slim', description: 'Variant for Debian base image')
 
     ]),
     disableConcurrentBuilds(),
@@ -113,6 +113,10 @@ node('docker-buildx') {
                         --annotation org.opencontainers.image.created="\$(date -Iseconds)" \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION}_base \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FULL_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}_base-${params.BASE_IMAGE} \
@@ -126,7 +130,11 @@ node('docker-buildx') {
                     sh """
                         docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable_base \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest_base \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:stable_base-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:stable_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:latest_base-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:latest_base-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}_base-${params.BASE_IMAGE} \
                             --tag ${params.ECR_PUBLIC_REPO}:stable_base-${params.BASE_IMAGE} \
@@ -155,6 +163,10 @@ node('docker-buildx') {
                         --build-arg BASE_IMAGE=${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION}_base \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                         --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FEATURE_VERSION} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FULL_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FULL_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
+                        --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:${params.FEATURE_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
                         --tag ${params.ECR_PUBLIC_REPO}:${params.FEATURE_VERSION}-${params.BASE_IMAGE} \
@@ -173,7 +185,11 @@ node('docker-buildx') {
                     sh """
                         docker buildx imagetools create ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:${params.FULL_VERSION} \
                             --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:stable \
-                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/${params.IMAGE_NAME}:latest \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:stable-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:stable-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:latest-${params.BASE_IMAGE} \
+                            --tag ${params.DOCKER_REGISTRY}/${params.NAMESPACE}/clamav:latest-${params.BASE_IMAGE}${params.BASE_IMAGE_VERSION}-${params.BASE_IMAGE_VARIANT}
 
                         docker buildx imagetools create ${params.ECR_PUBLIC_REPO}:${params.FULL_VERSION}-${params.BASE_IMAGE} \
                             --tag ${params.ECR_PUBLIC_REPO}:stable-${params.BASE_IMAGE} \
