@@ -556,3 +556,33 @@ You might do something along these lines:
        docker exec -it clam_container_02 clamdscan --reload; \
    fi
    ```
+
+## User and Permissions Management
+
+### UID/GID Customization and Permissions
+
+- The container supports runtime override of the ClamAV user and group IDs using the environment variables `CLAMAV_UID` and `CLAMAV_GID`.
+- Example usage:
+  ```sh
+  docker run -e CLAMAV_UID=2000 -e CLAMAV_GID=2000 clamav/clamav-debian:1.5
+  ```
+- At startup, the entrypoint script will:
+  - Update the `clamav` user and group to the specified UID/GID.
+  - Ensure `/var/lib/clamav`, `/var/log/clamav`, and `/run/clamav` exist and are owned by the correct user/group.
+  - This ensures ClamAV can read/write its database and logs, even if you mount volumes over these directories.
+
+### Running as Non-root
+
+- If you run the container with `--user`, you are responsible for ensuring all necessary directories are writable by that user.
+- The entrypoint script cannot change ownership if not running as root.
+- Example:
+  ```sh
+  docker run --user 2000:2000 -v /my/log:/var/log/clamav clamav/clamav-debian:1.5
+  ```
+- If you mount volumes, ensure the host directories exist and are writable by the container user.
+
+### Robust Directory Handling
+
+- The entrypoint script will create `/var/log/clamav` at runtime if it does not exist (e.g., if a volume is mounted over it).
+- Ownership is always set to the runtime UID/GID, ensuring no permission errors.
+

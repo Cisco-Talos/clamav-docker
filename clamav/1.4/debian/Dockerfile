@@ -121,8 +121,8 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/cache/apt/archives && \
     groupadd -g 1000 "clamav" && \
     useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 1000 -c "Clam Antivirus" clamav && \
-    install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
-    chown -R clamav:clamav /var/lib/clamav
+    install -d -m 755 -g 1000 -o 1000 "/var/log/clamav" && \
+    chown -R 1000:1000 /var/lib/clamav
 
 COPY --from=builder "/clamav" "/"
 

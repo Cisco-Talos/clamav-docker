@@ -10,6 +10,41 @@
 
 set -eu
 
+# ============================================================================
+# UID/GID Detection for Unprivileged Mode
+# ============================================================================
+# This script runs as non-root, so we cannot create/modify users
+# The clamav user must already exist (created by docker-entrypoint.sh or Dockerfile)
+# We detect the actual UID/GID from the existing user
+
+if ! id "clamav" > /dev/null 2>&1; then
+	echo "ERROR: clamav user does not exist!" >&2
+	echo "" >&2
+	echo "This unprivileged entrypoint requires the clamav user to already exist." >&2
+	echo "" >&2
+	echo "Solutions:" >&2
+	echo "  1. Use the privileged entrypoint (default):" >&2
+	echo "     docker run <image>" >&2
+	echo "" >&2
+	echo "  2. Use privileged entrypoint with custom UID/GID:" >&2
+	echo "     docker run -e CLAMAV_UID=2000 -e CLAMAV_GID=2000 <image>" >&2
+	echo "" >&2
+	echo "  3. Use unprivileged entrypoint after running privileged setup:" >&2
+	echo "     docker run --entrypoint /init <image>" >&2
+	exit 1
+fi
+
+# Get actual UID/GID from existing clamav user
+CLAMAV_UID=$(id -u clamav)
+CLAMAV_GID=$(id -g clamav)
+
+echo "INFO: Running as unprivileged user: clamav (UID=${CLAMAV_UID}, GID=${CLAMAV_GID})"
+
+# ============================================================================
+# End of UID/GID Detection
+# ============================================================================
+
+
 # run command if it is not starting with a "-" and is an executable in PATH
 if [ "${#}" -gt 0 ] && \
    [ "${1#-}" = "${1}" ] && \
@@ -43,7 +78,7 @@ else
 		          --daemon \
 		          --foreground \
 		          --stdout \
-		          --user="clamav" \
+		          --user="${CLAMAV_UID}" \
 			  &
 	fi
 

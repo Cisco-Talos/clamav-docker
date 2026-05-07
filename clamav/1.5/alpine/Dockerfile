@@ -98,6 +98,7 @@ RUN apk update && apk upgrade \
     apk add \
         fts \
         libstdc++ \
+        shadow-utils \
         tini \
         tzdata \
         # Clamav dependencies provided by alpine
@@ -111,10 +112,11 @@ RUN apk update && apk upgrade \
         zlib \
     && \
     rm -rf /var/cache/apk/* && \
-    addgroup -S "clamav" && \
-    adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u 100 -S "clamav" && \
-    install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
-    chown -R clamav:clamav /var/lib/clamav
+    groupadd -g 100 "clamav" && \
+    useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 100 -c "Clam Antivirus" clamav && \
+    install -d -m 755 -g 100 -o 100 "/var/log/clamav" && \
+    chown -R 100:100 /var/lib/clamav
+
 
 COPY --from=builder "/clamav" "/"
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
