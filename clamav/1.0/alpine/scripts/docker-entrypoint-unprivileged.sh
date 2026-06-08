@@ -32,7 +32,11 @@ else
 			-e '$a TestDatabases no' \
 			-e 's|^\(NotifyClamd \)|\#\1|' \
 			/etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
-		freshclam --foreground --stdout --config-file=/tmp/freshclam_initial.conf
+		if ! freshclam --foreground --stdout \
+               --config-file=/tmp/freshclam_initial.conf; then
+      echo "Initial database download failed"
+      exit 1
+    fi
 		rm /tmp/freshclam_initial.conf
 	fi
 

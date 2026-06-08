@@ -104,6 +104,9 @@ EXPOSE 7357
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
+# Default non-root user
+ARG NEW_UID=100
+ARG NEW_GID=101
 RUN apt-get update && apt-get install -y \
         libbz2-1.0 \
         libcurl4 \
@@ -119,17 +122,31 @@ RUN apt-get update && apt-get install -y \
     && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     rm -rf /var/cache/apt/archives && \
-    groupadd -g 1000 "clamav" && \
-    useradd -m -g clamav -s /bin/false --home-dir /var/lib/clamav -u 1000 -c "Clam Antivirus" clamav && \
+    # Dynamically create system group and user using build arguments
+    addgroup -g "${NEW_GID}" -S "clamav" && \
+    adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u "${NEW_UID}" -S "clamav" && \
+    # Ensure correct directory permissions before switching users
     install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
     chown -R clamav:clamav /var/lib/clamav
 
 COPY --from=builder "/clamav" "/"
-
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
-COPY "./scripts/docker-entrypoint.sh" "/init"
+
+# Copy and replace the script system with only your unprivileged variant
 COPY "./scripts/docker-entrypoint-unprivileged.sh" "/init-unprivileged"
 
-HEALTHCHECK --start-period=6m CMD clamdcheck.sh
+# Configuration files should not be writable by the service account
+RUN chown -R root:root /etc/clamav && \
+    find /etc/clamav -type d -exec chmod 755 {} + && \
+    find /etc/clamav -type f -exec chmod 644 {} +
 
-ENTRYPOINT [ "/init" ]
+# Data and logs remain writable by clamav
+RUN chown -R clamav:clamav \
+        /var/lib/clamav \
+        /var/log/clamav
+
+# Switch execution context strictly to the unprivileged account
+USER clamav
+
+HEALTHCHECK --start-period=6m CMD clamdcheck.sh
+ENTRYPOINT [ "/init-unprivileged" ]
