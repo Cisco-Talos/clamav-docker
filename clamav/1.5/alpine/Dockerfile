@@ -138,6 +138,8 @@ RUN chown -R clamav:clamav \
         /var/lib/clamav \
         /var/log/clamav
 
+RUN install -d -m 1777 /tmp
+
 # Switch execution context strictly to the unprivileged account
 USER clamav
 

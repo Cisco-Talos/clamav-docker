@@ -105,8 +105,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
 # Default non-root user
-ARG NEW_UID=100
-ARG NEW_GID=101
+ARG NEW_UID=1000
+ARG NEW_GID=1000
+
 RUN apt-get update && apt-get install -y \
         libbz2-1.0 \
         libcurl4 \
@@ -121,13 +122,26 @@ RUN apt-get update && apt-get install -y \
         netcat-openbsd \
     && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    rm -rf /var/cache/apt/archives && \
-    # Dynamically create system group and user using build arguments
-    addgroup -g "${NEW_GID}" -S "clamav" && \
-    adduser -D -G "clamav" -h "/var/lib/clamav" -s "/bin/false" -u "${NEW_UID}" -S "clamav" && \
-    # Ensure correct directory permissions before switching users
-    install -d -m 755 -g "clamav" -o "clamav" "/var/log/clamav" && \
-    chown -R clamav:clamav /var/lib/clamav
+    rm -rf /var/cache/apt/archives
+
+# Dynamically create system group and user using build arguments
+RUN addgroup \
+        --gid "${NEW_GID}" \
+        --system \
+        clamav && \
+    adduser \
+        --uid "${NEW_UID}" \
+        --system \
+        --ingroup clamav \
+        --home /var/lib/clamav \
+        --shell /usr/sbin/nologin \
+        clamav && \
+    install -d \
+        -m 755 \
+        -o clamav \
+        -g clamav \
+        /var/lib/clamav \
+        /var/log/clamav
 
 COPY --from=builder "/clamav" "/"
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"

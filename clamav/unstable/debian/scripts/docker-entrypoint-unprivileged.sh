@@ -10,6 +10,39 @@
 
 set -eu
 
+#
+# Create runtime configs in /tmp
+# We never modify /etc/clamav
+#
+CLAMD_RUNTIME_CONF="/tmp/clamd.conf"
+FRESHCLAM_RUNTIME_CONF="/tmp/freshclam.conf"
+
+cp /etc/clamav/clamd.conf "${CLAMD_RUNTIME_CONF}"
+cp /etc/clamav/freshclam.conf "${FRESHCLAM_RUNTIME_CONF}"
+
+#
+# Apply CLAMD_CONF_* environment overrides
+#
+env | grep "^CLAMD_CONF_" | while IFS="=" read -r KEY VALUE; do
+    TRIMMED="${KEY#CLAMD_CONF_}"
+
+    grep -q "^#${TRIMMED} " "${CLAMD_RUNTIME_CONF}" && \
+        sed -i "s|^#${TRIMMED} .*|${TRIMMED} ${VALUE}|" "${CLAMD_RUNTIME_CONF}" || \
+        sed -i "\$a\\${TRIMMED} ${VALUE}" "${CLAMD_RUNTIME_CONF}"
+done
+
+#
+# Apply FRESHCLAM_CONF_* environment overrides
+#
+env | grep "^FRESHCLAM_CONF_" | while IFS="=" read -r KEY VALUE; do
+    TRIMMED="${KEY#FRESHCLAM_CONF_}"
+
+    grep -q "^#${TRIMMED} " "${FRESHCLAM_RUNTIME_CONF}" && \
+        sed -i "s|^#${TRIMMED} .*|${TRIMMED} ${VALUE}|" "${FRESHCLAM_RUNTIME_CONF}" || \
+        sed -i "\$a\\${TRIMMED} ${VALUE}" "${FRESHCLAM_RUNTIME_CONF}"
+done
+
+
 # run command if it is not starting with a "-" and is an executable in PATH
 if [ "${#}" -gt 0 ] && \
    [ "${1#-}" = "${1}" ] && \
@@ -20,7 +53,7 @@ else
 	if [ "${#}" -ge 1 ] && \
 	   [ "${1#-}" != "${1}" ]; then
 		# If an argument starts with "-" pass it to clamd specifically
-		exec clamd "${@}"
+		exec clamd --config-file="${CLAMD_RUNTIME_CONF}" "${@}"
 	fi
 	# else default to running clamav's servers
 
@@ -31,7 +64,7 @@ else
 		sed -e 's|^\(TestDatabases \)|\#\1|' \
 			-e '$a TestDatabases no' \
 			-e 's|^\(NotifyClamd \)|\#\1|' \
-			/etc/clamav/freshclam.conf > /tmp/freshclam_initial.conf
+			"${FRESHCLAM_RUNTIME_CONF}" > /tmp/freshclam_initial.conf
 		if ! freshclam --foreground --stdout \
                --config-file=/tmp/freshclam_initial.conf; then
       echo "Initial database download failed"
@@ -47,7 +80,7 @@ else
 		          --daemon \
 		          --foreground \
 		          --stdout \
-		          --user="clamav" \
+		          --config-file="${FRESHCLAM_RUNTIME_CONF}" \
 			  &
 	fi
 
@@ -56,7 +89,7 @@ else
 		if [ -S "/tmp/clamd.sock" ]; then
 			unlink "/tmp/clamd.sock"
 		fi
-		clamd --foreground &
+		clamd --foreground --config-file="${CLAMD_RUNTIME_CONF}" &
 		while [ ! -S "/tmp/clamd.sock" ]; do
 			if [ "${_timeout:=0}" -gt "${CLAMD_STARTUP_TIMEOUT:=1800}" ]; then
 				echo
