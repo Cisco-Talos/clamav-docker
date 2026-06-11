@@ -60,21 +60,82 @@ The `<version>` may be one of three things:
    > *Note*: Once a newer patch version exists, the tag for the previous patch
    > version will no longer be updated for security issues in the base image.
 
-3. A **patch version plus build revision** in the form `X.Y.Z-R`.
-
-   For example `0.105.1-3` represents the third revision of the 0.105.1 image.
-
-   New revisions are created to fix problems with Docker-specific features, and
-   to patch security issues found in the base image.
-
-   Once built, an image tag with a `-R` suffix will never be updated.
-
-   > *Important*: You should never select a tag with a `-R` suffix for use in
-   > production, but it may be useful for historical reference.
 
 You can use the `unstable` version (i.e. `clamav/clamav-debian:unstable` or
-`clamav/clamav-debian:unstable_base`) to try the latest from our development
-branch.
+`clamav/clamav-debian:unstable_base`) to try the latest from our development branch.
+
+
+## Security model (IMPORTANT)
+
+This image runs as a **non-root `clamav` user by default**.
+
+### UID/GID defaults
+
+Build-time defaults:
+
+ARG NEW_UID=1000
+ARG NEW_GID=1000
+
+These are only used to create the user inside the image.
+
+### Key principle
+
+- UID/GID is NOT required for normal usage
+- Only relevant for bind mounts or enterprise filesystem constraints
+
+---
+
+## Recommended usage (BEST PRACTICE)
+
+### Use Docker volumes (recommended)
+
+docker volume create clam_db
+
+docker run -it --rm \
+  --mount source=clam_db,target=/var/lib/clamav \
+  clamav/clamav-debian:unstable_base
+
+Why:
+- No permission issues
+- No host UID/GID dependency
+- Fully Docker-managed lifecycle
+
+---
+
+## Bind mounts (advanced users)
+
+docker run -it --rm \
+  --mount type=bind,source=/path/to/databases,target=/var/lib/clamav \
+  clamav/clamav-debian:unstable_base
+
+Important:
+- Container runs as non-root user `clamav`
+- Host permissions must allow write access OR use volumes
+- No automatic unsafe chmod/chown on host paths
+
+---
+
+## UID/GID build option (advanced)
+
+--build-arg NEW_UID=200
+--build-arg NEW_GID=200
+
+Use only for:
+- Kubernetes securityContext alignment
+- enterprise shared storage
+- NFS environments
+
+Not required for normal Docker usage. If user wants to use their own UID/GIDs they 
+build the clamav docker images on their own with required UID/GIDs
+
+---
+
+## Key security principles
+
+- Always prefer non-root execution
+- Prefer Docker volumes over bind mounts
+- Do not rely on host UID/GID matching
+- Treat /var/lib/clamav as persistent state boundary
 
 ## Building the ClamAV image
 
@@ -205,25 +266,14 @@ To do so, you have two options:
        clamav/clamav-debian:unstable_base
    ```
 
-   > _Disclaimer_: When using a Bind Mount, the container's entrypoint script
-   will change ownership of this directory to its "clamav" user. This enables
-   FreshClam and ClamD with the required permissions to read and write to the
-   directory, though these changes will also affect those files on the host.
+   > _Disclaimer_: Official clamav docker image work only for default UID/GIDs, 
+   > make sure the permission for database volume is set as per default UID/GIDs.
+   > Official image only provides unprivileged entrypoint scripts and will not
+   > change/set permissions on runtime.
 
 If you're thinking about running multiple containers that share a single
 database volume, [here are some notes on how this might work](#multiple-containers-sharing-the-same-mounted-databases).
 
-### Running ClamD using non-root user using --user and --entrypoint
-
-You can run a container using the non-root user "clamav" with the unprivileged entrypoint script. To do this with Docker, you will need to add these two options: `--user "clamav" --entrypoint /init-unprivileged`
-For example:
-```bash
-docker run -it --rm \
-      --user "clamav"
-      --entrypoint /init-unprivileged
-      --name "clam_container_01" \
-    clamav/clamav-debian:unstable_base
-```
 
 ## Running Clam(D)Scan
 
@@ -248,6 +298,9 @@ container as `/scandir` and thus invoking `clamscan` would thus be done on
 Note that while technically possible to run either scanners via `docker exec`
 this is not described as it is unlikely the container has access to the files
 to be scanned.
+
+   > _Disclaimer_: Make sure bind mounts have correct permissions set as per default UID/GID
+   > used by ClamAV docker images   
 
 ### ClamScan
 
@@ -420,7 +473,7 @@ clamav inside the container has permission to access it.
 Caution is required when managing permissions, as incorrect permission could
 open clamd for anyone on the host system.
 ```bash
-    --mount type=bind,source=/var/lib/docker/data/clamav/sockets/,target=/run/clamav/
+    --mount type=bind,source=/var/lib/docker/data/clamav/sockets/,target=/tmp
 ```
 
 > _Note_: If you override the `LocalSocket` option with a custom `clamd.conf`
