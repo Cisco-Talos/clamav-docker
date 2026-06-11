@@ -74,6 +74,17 @@ else
 	fi
 
 	if [ "${CLAMAV_NO_FRESHCLAMD:-false}" != "true" ]; then
+	  echo "Performing startup database update check"
+    if ! freshclam \
+        --foreground \
+        --stdout \
+        --config-file="${FRESHCLAM_RUNTIME_CONF}"; then
+      echo "freshclam update  failed"
+      exit 1
+    fi
+
+    echo "Database update check completed"
+
 		echo "Starting Freshclamd"
 		freshclam \
 		          --checks="${FRESHCLAM_CHECKS:-1}" \
