@@ -1,5 +1,0 @@
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
-
-RUN freshclam --foreground --stdout || true && \
-    rm -f /var/lib/clamav/freshclam.dat /var/lib/clamav/mirrors.dat || true
