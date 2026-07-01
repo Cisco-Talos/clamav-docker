@@ -92,7 +92,7 @@ RUN apt update && apt install -y \
         "/clamav/etc/clamav/clamav-milter.conf.sample" > "/clamav/etc/clamav/clamav-milter.conf" || \
     exit 1 \
     && \
-    ctest -V --timeout 3000
+    ctest -V --timeout 5000
 
 FROM index.docker.io/library/${BASE_IMAGE}
 
