@@ -139,9 +139,7 @@ RUN apk update && apk upgrade \
     chown -R clamav:clamav /var/lib/clamav
 
 COPY --from=builder "/clamav" "/"
-COPY --from=builder "/opt/libxml2" "/opt/libxml2"
-COPY --from=builder "/opt/libxml2/lib/libxml2.so.16.1.4" "/usr/lib/libxml2.so.16.1.4"
-RUN ln -s "libxml2.so.16.1.4" "/usr/lib/libxml2.so.16"
+COPY --from=builder /opt/libxml2/lib/libxml2.so* /usr/lib/
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
 COPY "./scripts/docker-entrypoint.sh" "/init"
 COPY "./scripts/docker-entrypoint-unprivileged.sh" "/init-unprivileged"
