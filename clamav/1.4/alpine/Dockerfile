@@ -11,12 +11,16 @@ WORKDIR /src
 
 COPY . /src/
 
+ARG LIBXML2_VERSION=2.15.4
+ARG LIBXML2_SHA256=98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821
+
 # hadolint ignore=DL3008  We want the latest stable versions
 RUN apk update && apk upgrade \
     && \
     apk add \
         bsd-compat-headers \
         cmake \
+        curl \
         file \
         g++ \
         libtool \
@@ -29,17 +33,34 @@ RUN apk update && apk upgrade \
         curl-dev \
         json-c-dev \
         libmilter-dev \
-        libxml2-dev \
         ncurses-dev \
         openssl-dev \
         pcre2-dev \
         zlib-dev \
+        xz \
         # For the tests
         python3 \
         py3-pytest \
         # For Rust/Cargo
         cargo \
         rust \
+    && \
+    curl -fsSL "https://download.gnome.org/sources/libxml2/2.15/libxml2-${LIBXML2_VERSION}.tar.xz" \
+        -o /tmp/libxml2.tar.xz \
+    && echo "${LIBXML2_SHA256}  /tmp/libxml2.tar.xz" | sha256sum -c - \
+    && mkdir -p /tmp/libxml2-src \
+    && tar -xJf /tmp/libxml2.tar.xz -C /tmp/libxml2-src --strip-components=1 \
+    && cmake -S /tmp/libxml2-src -B /tmp/libxml2-build \
+        -D CMAKE_BUILD_TYPE="Release" \
+        -D CMAKE_INSTALL_PREFIX="/opt/libxml2" \
+        -D CMAKE_INSTALL_LIBDIR="lib" \
+        -D BUILD_SHARED_LIBS=ON \
+        -D LIBXML2_WITH_ZLIB=ON \
+    && cmake --build /tmp/libxml2-build --parallel \
+    && cmake --install /tmp/libxml2-build \
+    && rm -rf /tmp/libxml2-src /tmp/libxml2-build /tmp/libxml2.tar.xz \
+    && export PKG_CONFIG_PATH="/opt/libxml2/lib/pkgconfig" \
+    && export LD_LIBRARY_PATH="/opt/libxml2/lib" \
     && \
     mkdir -p "./build" && cd "./build" && \
     cmake .. \
@@ -54,6 +75,8 @@ RUN apk update && apk upgrade \
         -D ENABLE_MAN_PAGES=OFF                                                             \
         -D ENABLE_STATIC_LIB=OFF                                                            \
         -D ENABLE_JSON_SHARED=ON                                                            \
+        -D LIBXML2_INCLUDE_DIR="/opt/libxml2/include/libxml2"                               \
+        -D LIBXML2_LIBRARY="/opt/libxml2/lib/libxml2.so"                                   \
     && \
     make DESTDIR="/clamav" -j$(($(nproc) - 1)) install && \
     rm -r \
@@ -105,7 +128,6 @@ RUN apk update && apk upgrade \
         libbz2 \
         libcurl \
         libmilter \
-        libxml2 \
         ncurses-libs \
         pcre2 \
         zlib \
@@ -117,6 +139,7 @@ RUN apk update && apk upgrade \
     chown -R clamav:clamav /var/lib/clamav
 
 COPY --from=builder "/clamav" "/"
+COPY --from=builder /opt/libxml2/lib/libxml2.so* /usr/lib/
 COPY "./scripts/clamdcheck.sh" "/usr/local/bin/"
 COPY "./scripts/docker-entrypoint.sh" "/init"
 COPY "./scripts/docker-entrypoint-unprivileged.sh" "/init-unprivileged"
